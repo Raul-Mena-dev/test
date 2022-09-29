@@ -1,1 +1,0 @@
-Test diario: Test para comprobar el funcionamiento del script para revisar el inventario físico inicial como el final, contra los datos en los registros del medidor del almacén

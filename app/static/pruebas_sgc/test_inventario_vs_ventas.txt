@@ -1,1 +1,0 @@
-Test  diario: revisa el ultimo inventario y contrasta las filas de salidas venta contra lo que se muestra en reporte condensado de ventas en SGC ventas

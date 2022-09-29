@@ -1,1 +1,0 @@
-Test diario: Test para comprobar el inventario físico final del ultimo inventario generado contra los datos en los registros del medidor del almacén

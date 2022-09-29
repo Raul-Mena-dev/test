@@ -1,1 +1,0 @@
-HP: revisa el ultimo inventario y contrasta las filas de salidas venta contra lo que se muestra en reporte condensado de ventas en SGC ventas, ejecuta todo el flujo sin importar las comparaciones tiene de muestra la fecha: 13-09-22

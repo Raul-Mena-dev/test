@@ -1,1 +1,0 @@
-Test Diario: Test para comprobar que lo mostrado en Anden cuadra con Auditor Anden y si existe una diferencia tolerable, se revisa el día del ultimo inventario
