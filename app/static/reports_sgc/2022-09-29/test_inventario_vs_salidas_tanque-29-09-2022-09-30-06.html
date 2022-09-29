@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>09-29-2022-09-30-31</h1>
+    <p>Report generated on 29-Sep-2022 at 09:30:31 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 23.98 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_inventario_vs_salidas_tanque.py::test_inventario_vs_salidas_tanque</td>
+          <td class="col-duration">23.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">driver = &lt;selenium.webdriver.chrome.webdriver.WebDriver (session=&quot;a72f7702e84147e22214c4198cf71ebc&quot;)&gt;, name = &#x27;administrador&#x27;, password = &#x27;administrador&#x27;<br/>name_web = &#x27;admin&#x27;, password_web = &#x27;Ku8L08iEsb86&#x27;<br/><br/>    def test_inventario_vs_salidas_tanque(driver, name=&#x27;administrador&#x27;, password=&#x27;administrador&#x27;, name_web=&#x27;admin&#x27;, password_web=&#x27;Ku8L08iEsb86&#x27;):<br/>        datos_inventario = {}<br/>        datos_ventas = {}<br/>        try:<br/>            login(driver, name, password)<br/>            time.sleep(2)<br/>            # sacar fechas del inventario<br/>            boton_inventario = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_7&quot;]&#x27;)<br/>            boton_inventario.click()<br/>            hora = datetime.datetime.now()<br/>            if hora.hour &gt;= 13:<br/>                dia_inventario = datetime.date.today()<br/>                dia_inventario = dia_inventario - datetime.timedelta(days=1)<br/>            else:<br/>                dia_inventario = datetime.date.today()<br/>                dia_inventario = dia_inventario - datetime.timedelta(days=2)<br/>            datos_inventario[&#x27;Dia inventario&#x27;] = dia_inventario<br/>            dia_inventario = dia_inventario.strftime(&quot;%Y-%m-%d&quot;)<br/>            fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;inventario_basic&quot;]&#x27;)<br/>            fecha.send_keys(dia_inventario)<br/>            fecha.send_keys(Keys.ENTER)<br/>            time.sleep(1)<br/>            # fecha inicial del inventario<br/>            if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;):<br/>                documento = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;)<br/>                documento.click()<br/>                time.sleep(1)<br/>                fecha_inicial = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[2]/tbody/tr[1]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Fecha inicial inventario&#x27;] = fecha_inicial<br/>                fecha_inicial = convertir_fecha_24(fecha_inicial)<br/>                # fecha final del inventario<br/>                fecha_final = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;tr1&quot;]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Fecha Final del Inventario&#x27;] = fecha_final<br/>                fecha_final = convertir_fecha_24(fecha_final)<br/>                dia1 = datetime.datetime.strptime(fecha_inicial, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                dia1 = dia1.weekday()<br/>                dia2 = datetime.datetime.strptime(fecha_final, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                dia2 = dia2.weekday()<br/>                # revisar si el inventario es domingo<br/>                if (dia1 == 5 and dia2 == 6) or (dia1 == 6 and dia2 == 0 and hora.hour &gt; 13):<br/>                    boton_inventario = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_7&quot;]&#x27;)<br/>                    boton_inventario.click()<br/>                    hora = datetime.datetime.now()<br/>                    if hora.hour &gt;= 13:<br/>                        dia_inventario = datetime.date.today()<br/>                        dia_inventario = dia_inventario - datetime.timedelta(days=3)<br/>                    else:<br/>                        dia_inventario = datetime.date.today()<br/>                        dia_inventario = dia_inventario - datetime.timedelta(days=4)<br/>                    datos_inventario[&#x27;Dia inventario&#x27;] = dia_inventario<br/>                    dia_inventario = dia_inventario.strftime(&quot;%Y-%m-%d&quot;)<br/>                    fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;inventario_basic&quot;]&#x27;)<br/>                    fecha.send_keys(dia_inventario)<br/>                    fecha.send_keys(Keys.ENTER)<br/>                    time.sleep(1)<br/>                    # fecha inicial del inventario<br/>                    if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;):<br/>                        documento = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;)<br/>                        documento.click()<br/>                        time.sleep(1)<br/>                        fecha_inicial = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[2]/tbody/tr[1]/td[2]&#x27;).text<br/>                        datos_inventario[&#x27;Fecha inicial inventario&#x27;] = fecha_inicial<br/>                        fecha_inicial = convertir_fecha_24(fecha_inicial)<br/>                        # fecha final del inventario<br/>                        fecha_final = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;tr1&quot;]/td[2]&#x27;).text<br/>                        datos_inventario[&#x27;Fecha Final del Inventario&#x27;] = fecha_final<br/>                        fecha_final = convertir_fecha_24(fecha_final)<br/>                    else:<br/>                        mensaje_de_salida(datos_inventario, datos_ventas)<br/>                        assert False, &#x27;No hay inventario del dia anterior.&#x27;<br/>                # sacamoss los datos a revisar carga auotanque y auditor<br/>                time.sleep(2)<br/>                carga_autotanques = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[5]/tbody/tr[2]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;carga_autotanqes&#x27;] = carga_autotanques<br/>                carga_autotanques = carga_autotanques.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                carga_autotanques = carga_autotanques.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                carga_autotanques = carga_autotanques.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                carga_autotanques = carga_autotanques.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                auditor = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[5]/tbody/tr[3]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Auditor&#x27;] = auditor<br/>                auditor = auditor.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                auditor = auditor.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                auditor = auditor.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                auditor = auditor.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                total_tanque = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[5]/tbody/tr[5]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Total salidas del tanque&#x27;] = total_tanque<br/>                total_tanque = total_tanque.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                total_tanque = total_tanque.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                total_tanque = total_tanque.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                total_tanque = total_tanque.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                inventario_movimiento = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[3]/tbody/tr[4]/td[2]&#x27;).text<br/>                inventario_movimiento = inventario_movimiento.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                inventario_movimiento = inventario_movimiento.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                inventario_movimiento = inventario_movimiento.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                inventario_movimiento = inventario_movimiento.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                datos_inventario[&#x27;Inventario en movimiento&#x27;] = inventario_movimiento<br/>                salidas_venta = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[3]/tbody/tr[5]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Salidas venta&#x27;] = salidas_venta<br/>                salidas_venta = salidas_venta.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                salidas_venta = salidas_venta.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                salidas_venta = salidas_venta.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                salidas_venta = salidas_venta.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                suma = float(inventario_movimiento) + float(salidas_venta)<br/>                suma = round(suma, 2)<br/>                suma_total_tanque = float(carga_autotanques) + float(auditor)<br/>                suma_total_tanque = round(suma_total_tanque, 2)<br/>                # se comprueba si los datos en inventario cuadran<br/>                if float(suma_total_tanque) != float(total_tanque):<br/>                    mensaje_de_salida(datos_inventario, datos_ventas)<br/>                    assert False, &#x27;La suma de la carga de autotanques + el auditor no cuadra con el total&#x27;<br/>                if float(suma) != float(total_tanque):<br/>                    mensaje_de_salida(datos_inventario, datos_ventas)<br/>                    assert False, &#x27;La suma del inventario en movimiento mas las salidas venta no cuadra con el total de salidas del tanque&#x27;<br/>                # nos movemos a auditor anden<br/>                auditor_anden = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_5&quot;]&#x27;)<br/>                auditor_anden.click()<br/>                busqueda_avanzada = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;tab_link_isies_registros_masico|advanced_search&quot;]&#x27;)<br/>                busqueda_avanzada.click()<br/>                fecha_1 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;fecha_final_advanced&quot;]&#x27;)<br/>                fecha_1.send_keys(fecha_inicial)<br/>                time.sleep(2)<br/>                fecha_2 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;fecha_final1_advanced&quot;]&#x27;)<br/>                fecha_2.send_keys(fecha_final)<br/>                time.sleep(2)<br/>                fecha_2.submit()<br/>                time.sleep(2)<br/>                lista = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody&#x27;)<br/>                lista_len = len(lista.find_elements(By.TAG_NAME, &#x27;tr&#x27;))<br/>                time.sleep(2)<br/>                if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[5]&#x27;):<br/>                    ultimo_registro = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[5]&#x27;).text<br/>                    ultimo_registro = ultimo_registro.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                    datos_inventario[&#x27;Ultimo registro&#x27;] = ultimo_registro<br/>                    flecha = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{lista_len - 2}]/td/table/tbody/tr/td[2]/button[4]&#x27;)<br/>                    if flecha.is_enabled():<br/>                        flecha.click()<br/>                        time.sleep(2)<br/>                        lista2 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody&#x27;)<br/>                        lista2_len = len(lista2.find_elements(By.TAG_NAME, &#x27;tr&#x27;))<br/>                        datos_inventario[&#x27;len&#x27;] = lista2_len<br/>                        primer_registro = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{lista2_len - 3}]/td[5]&#x27;).text<br/>                        primer_registro = primer_registro.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                        datos_inventario[&#x27;Primer registro&#x27;] = primer_registro<br/>                    else:<br/>                        time.sleep(2)<br/>                        lista2 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody&#x27;)<br/>                        lista2_len = len(lista2.find_elements(By.TAG_NAME, &#x27;tr&#x27;))<br/>                        datos_inventario[&#x27;len&#x27;] = lista2_len<br/>                        primer_registro = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{lista2_len - 3}]/td[5]&#x27;).text<br/>                        primer_registro = primer_registro.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                        datos_inventario[&#x27;Primer registro&#x27;] = primer_registro<br/>                    resta = float(datos_inventario[&#x27;Ultimo registro&#x27;]) - float(datos_inventario[&#x27;Primer registro&#x27;])<br/>                    resta = round(resta, 2)<br/>                    datos_inventario[&#x27;Diferencia entre primer y ultimo registro Auditor anden&#x27;] = resta<br/>                    # revisamos si el auditor cuadra con los datos de auditor anden<br/>                    if resta != float(auditor):<br/>                        mensaje_de_salida(datos_inventario, datos_ventas)<br/>&gt;                       assert False, &#x27;Diferencia entre el auditor de inventario y el registro de auditor anden&#x27;<br/><span class="error">E                       AssertionError: Diferencia entre el auditor de inventario y el registro de auditor anden</span><br/><span class="error">E                       assert False</span><br/><br/>app/static/pruebas_sgc/test_inventario_vs_salidas_tanque.py:180: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>-------------------------------------------
+Datos de inventario: 
+
+Dia inventario :  2022-09-27
+Fecha inicial inventario :  2022-09-27 01:00pm
+Fecha Final del Inventario :  2022-09-28 01:00pm
+carga_autotanqes :  1,000.00 lt
+Auditor :  656.59 lt
+Total salidas del tanque :  1,656.59 lt
+Inventario en movimiento :  853.09
+Salidas venta :  803.50 lt
+Ultimo registro :  19083.15
+len :  51
+Primer registro :  18786.74
+Diferencia entre primer y ultimo registro Auditor anden :  296.41
+-------------------------------------------
+Datos de ventas: 
+
+-------------------------------------------
+<br/></div></td></tr></tbody></table></body></html>

@@ -1,0 +1,1 @@
+Test diario: Test para comprobar si el ultimo inventario se genero

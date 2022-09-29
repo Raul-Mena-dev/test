@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {% block navbar %}
+            {% include 'navbar.html' %}
+    {% endblock %}
+
+    {% include 'buscador2.html' %}
+    <p class="mt-2">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="alert alert-info" role="alert" >
+            {% for message in messages %}
+              <li>{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+    </p>
+      {% if msg %}
+        <p class=error><strong>Error:</strong> {{ msg }}
+      {% endif %}
+<div class="container mt-2" id="lista">
+    <h1><i class="fa-regular fa-file me-1"></i>Reportes</h1>
+    <ul class="list-group">
+        {% for report in reports %}
+        <li class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" >
+          <a class="text-decoration-none text-reset" href="reportes_sgc/{{report}}"><i class="fa-regular fa-file me-1"></i>{{report}}</a>
+          
+        </li>
+        
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

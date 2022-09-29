@@ -1,0 +1,1 @@
+Test Diario: Test para revisar si las entradas/compras del inventario mas reciente concuerda contra los datos en descarga/descarga por documentos

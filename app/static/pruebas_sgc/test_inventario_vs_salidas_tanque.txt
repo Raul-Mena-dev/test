@@ -1,0 +1,1 @@
+Test diario: test para comprobar los datos de salida de tanque del ultimo inventario con los datos en sistema
