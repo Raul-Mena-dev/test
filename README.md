@@ -1,6 +1,6 @@
-# GasStation
+# TestStation
 
-Pruebas automaticas para GasStation
+Plataforma para correr test
 
 ## Getting started
 
