@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+
+
+{% block body %}
+    {% block navbar %}
+        {% include 'navbar.html' %}
+    {% endblock %}
+<div class="container mt-5">
+    <form method="post" action="{{ url_for('subir') }}" enctype = "multipart/form-data" >
+    <div class="form-group">
+    <label><strong><i class="fa-solid fa-file-arrow-up me-1"></i>Subir Archivo de Testing</strong></label>
+    <div class="custom-file">
+        <input type="file"  class="custom-file-input form-control" name="file" required>
+        <label class="custom-file-label" for="customFile">Selecciona archivo</label>
+    </div>
+    <label class="mt-3"><strong>Carpeta o proyecto</strong></label>
+    <div class="form-check ">
+      <input class="form-check-input" type="radio" name="option" id="sgc" value="sgc" >
+        <label class="form-check-label" for="sgc">
+          SGC
+        </label>
+    </div>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="radio" name="option" id="gas" value="gas">
+        <label class="form-check-label" for="gas">
+          Gas Station
+        </label>
+    </div>
+    </div> 
+    <div class="mb-3">
+      <label for="descripcion" class="form-label"><strong><i class="fa-regular fa-comments me-2"></i>Descripcion del test</strong></label>
+      <textarea class="form-control" id="descripcion" name="descripcion" rows="3" required></textarea>
+    </div>
+    <div class="form-group">
+    <input name="upload"  id="upload" class="btn btn-block btn-dark" class="btn btn-primary" type="submit" value="Subir " >
+    </div>
+    <div>{{msgU}}</div>
+    </form>
+    <div class="col justify-content-center m-4 bg-white">
+        <p >
+          {% with messages = get_flashed_messages() %}
+            {% if messages %}
+              <ul class="alert alert-info" role="alert" >
+              {% for message in messages %}
+                <li>{{ message }}</li>
+              {% endfor %}
+              </ul>
+            {% endif %}
+          {% endwith %}
+      </p>
+</div>
+{% endblock %}

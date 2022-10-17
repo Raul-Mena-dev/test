@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>10-05-2022-09-39-39</h1>
+    <p>Report generated on 05-Oct-2022 at 09:39:39 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 62.20 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_ventas_vs_json_precargado.py::test_ventas_vs_json</td>
+          <td class="col-duration">62.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">driver = &lt;selenium.webdriver.chrome.webdriver.WebDriver (session=&quot;29777291dbd8c2ca38dc658aa2bab7e6&quot;)&gt;, name = &#x27;administrador&#x27;, password = &#x27;administrador&#x27;<br/>name_web = &#x27;admin&#x27;, password_web = &#x27;Ku8L08iEsb86&#x27;<br/><br/>    def test_ventas_vs_json(driver, name=&#x27;administrador&#x27;, password=&#x27;administrador&#x27;, name_web=&#x27;admin&#x27;, password_web=&#x27;Ku8L08iEsb86&#x27;):<br/>        datos_ventas = {}<br/>        ventas = []<br/>        facturados_sin_complemento = []<br/>        # ventas_que_no_aparecen = []<br/>        fecha_inicio = &#x27;2022-09-28&#x27;<br/>        fecha_final = &#x27;2022-09-29&#x27;<br/>        try:<br/>            # nos logeamos en sgc ventas<br/>            login_web(driver, name_web, password_web)<br/>            time.sleep(1)<br/>            principal = driver.current_window_handle<br/>            # nos movemos a la pestaña necesara<br/>            driver.execute_script(&#x27;&#x27;&#x27;window.open(&quot;https://testventas.sgcweb.com.mx/index.php?module=isies_reportes_generales&amp;action=DetailView&amp;record=2ef1e97a-0954-03df-6c18-4e933561657a&quot;,&quot;_blank&quot;);&#x27;&#x27;&#x27;)<br/>            chld = driver.window_handles[1]<br/>            driver.switch_to.window(chld)<br/>            time.sleep(3)<br/>            # se mandan las fechas necesarias<br/>            fecha1 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_fecha_0&quot;]&#x27;)<br/>            hora1 = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_hora_0&quot;]&#x27;))<br/>            fecha1.clear()<br/>            fecha1.send_keys(fecha_inicio)<br/>            time.sleep(1)<br/>            hora1.select_by_value(&#x27;13&#x27;)<br/>            fecha2 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_fecha2_0&quot;]&#x27;)<br/>            hora2 = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_hora2_0&quot;]&#x27;))<br/>            min2 = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_minuto2_0&quot;]&#x27;))<br/>            fecha2.clear()<br/>            fecha2.send_keys(fecha_final)<br/>            time.sleep(1)<br/>            hora2.select_by_value(&#x27;14&#x27;)<br/>            min2.select_by_value(&#x27;0&#x27;)<br/>            datos_ventas[&#x27;Fecha de inicio de informe&#x27;] = fecha_inicio<br/>            datos_ventas[&#x27;Fecha de final de informe&#x27;] = fecha_final<br/>            ver_reporte = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;btn_ver_reporte&quot;]&#x27;)<br/>            ver_reporte.click()<br/>            time.sleep(15)<br/>            # se saca la cantidad de servicios que existen en el rango de fechas y horas correspondientes<br/>            lista_servicios = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_preViewReport&quot;]/table/tbody&#x27;)<br/>            lista_servicios_len = len(lista_servicios.find_elements(By.TAG_NAME, &#x27;tr&#x27;))<br/>            datos_ventas[&#x27;Cantidad de servicios&#x27;] = lista_servicios_len - 2<br/>            i = 2<br/>            facturados = 0<br/>            # creamos los objetos necesarios por cada venta con la mitad de informacion (folio, fecha, estado, cantidad de lt)<br/>            with open(&#x27;/home/rmenapc/Escritorio/sgcweb/archivos_de_prueba/datos.txt&#x27;) as file:<br/>                for line in file:<br/>                    texto = line.split(&#x27; &#x27;)<br/>                    venta = Venta()<br/>                    venta.numero_de_registro = texto[0]<br/>                    venta.fecha = texto[1] + &#x27; &#x27; + texto[2]<br/>                    venta.estado = texto[3]<br/>                    if venta.estado == &#x27;Facturado&#x27;:<br/>                        facturados += 1<br/>                        venta.cfdi = texto[5]<br/>                        venta.tipo_cfdi = texto[6]<br/>                        venta.valor_numerico = texto[7]<br/>                    else:<br/>                        venta.cfdi = &#x27;N/A&#x27;<br/>                        venta.tipo_cfdi = &#x27;N/A&#x27;<br/>                        venta.valor_numerico = &#x27;N/A&#x27;<br/>                    venta.volumen_entregado = texto[4]<br/>                    ventas.append(venta)<br/>    <br/>            ventas.sort(key=lambda numero: numero.numero_de_registro)<br/>            datos_ventas[&#x27;Servicios Factutarados&#x27;] = 0<br/>            for dato in ventas:<br/>                if dato.estado == &#x27;Facturado&#x27;:<br/>                    datos_ventas[&#x27;Servicios Factutarados&#x27;] = int(datos_ventas[&#x27;Servicios Factutarados&#x27;]) + 1<br/>            # nos movemos a servicios para buscar cada servicio y ver si tiene factura si tiene sacara los datos necesarios<br/>            servicios = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_3&quot;]&#x27;)<br/>            servicios.click()<br/>            # sacamos los datos del json, de momento no hace la descarga automatica,hay que hacerla manual e indicar el path<br/>            with open(&#x27;/home/rmenapc/Descargas/json/28-09-22.json&#x27;, &#x27;r&#x27;) as json_file:<br/>                json_load = json.load(json_file)<br/>    <br/>            datos_json = []<br/>            data = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;Entrega&#x27;]<br/>            aux = 0<br/>            datos_ventas[&#x27;Total Lt en SGC ventas&#x27;] = 0<br/>            for venta in ventas:<br/>                datos_ventas[&#x27;Total Lt en SGC ventas&#x27;] = float(venta.volumen_entregado) + float(datos_ventas[&#x27;Total Lt en SGC ventas&#x27;])<br/>    <br/>            json_entregas = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalEntregas&#x27;]<br/>            datos_ventas[&#x27;Total entregado JSON&#x27;] = 0<br/>            fecha1 = &#x27;2022-09-28 13:00:00&#x27;<br/>            fecha2 = &#x27;2022-09-29 14:00:00&#x27;<br/>            fecha1 = datetime.datetime.strptime(fecha1, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>            fecha2 = datetime.datetime.strptime(fecha2, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>            for dato in data:<br/>                fecha = str(dato[&#x27;FechaYHoraFinalEntrega&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                fecha = fecha.split(&#x27; &#x27;)<br/>                sfecha = fecha[0]<br/>                shora = fecha[1]<br/>                shora = shora.split(&#x27;-&#x27;)<br/>                fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                fecha = fecha - datetime.timedelta(hours=5)<br/>                if fecha1 &lt;= fecha &lt;= fecha2:<br/>                    v = Venta()<br/>                    v.numero_de_registro = str(dato[&#x27;NumeroDeRegistro&#x27;])<br/>                    datos_ventas[&#x27;Total entregado JSON&#x27;] = float(datos_ventas[&#x27;Total entregado JSON&#x27;]) + float(dato[&#x27;VolumenEntregado&#x27;])<br/>                    v.volumen_entregado = str(dato[&#x27;VolumenEntregado&#x27;])<br/>                    fecha = str(dato[&#x27;FechaYHoraFinalEntrega&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                    fecha = fecha.split(&#x27; &#x27;)<br/>                    sfecha = fecha[0]<br/>                    shora = fecha[1]<br/>                    shora = shora.split(&#x27;-&#x27;)<br/>                    fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                    fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                    fecha = fecha - datetime.timedelta(hours=5)<br/>                    v.fecha = fecha<br/>                    if &#x27;Complemento&#x27; in dato:<br/>                        v.cfdi = dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;Cfdi&#x27;]<br/>                        v.tipo_cfdi = dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;TipoCfdi&#x27;]<br/>                        v.valor_numerico = str(dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;VolumenDocumentado&#x27;][&#x27;ValorNumerico&#x27;])<br/>                        aux += 1<br/>                    else:<br/>                        v.cfdi = &#x27;N/A&#x27;<br/>                        v.tipo_cfdi = &#x27;N/A&#x27;<br/>                        v.valor_numerico = &#x27;N/A&#x27;<br/>                    datos_json.append(v)<br/>    <br/>            with open(&#x27;/home/rmenapc/Descargas/json/29-09-22.json&#x27;, &#x27;r&#x27;) as json_file:<br/>                json_load = json.load(json_file)<br/>    <br/>            data = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;Entrega&#x27;]<br/>            for dato in data:<br/>                fecha = str(dato[&#x27;FechaYHoraFinalEntrega&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                fecha = fecha.split(&#x27; &#x27;)<br/>                sfecha = fecha[0]<br/>                shora = fecha[1]<br/>                shora = shora.split(&#x27;-&#x27;)<br/>                fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                fecha = fecha - datetime.timedelta(hours=5)<br/>                if fecha1 &lt;= fecha &lt;= fecha2:<br/>                    v = Venta()<br/>                    v.numero_de_registro = str(dato[&#x27;NumeroDeRegistro&#x27;])<br/>                    datos_ventas[&#x27;Total entregado JSON&#x27;] = float(datos_ventas[&#x27;Total entregado JSON&#x27;]) + float(dato[&#x27;VolumenEntregado&#x27;])<br/>                    v.volumen_entregado = str(dato[&#x27;VolumenEntregado&#x27;])<br/>                    fecha = str(dato[&#x27;FechaYHoraFinalEntrega&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                    fecha = fecha.split(&#x27; &#x27;)<br/>                    sfecha = fecha[0]<br/>                    shora = fecha[1]<br/>                    shora = shora.split(&#x27;-&#x27;)<br/>                    fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                    fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                    fecha = fecha - datetime.timedelta(hours=5)<br/>                    v.fecha = fecha<br/>                    if &#x27;Complemento&#x27; in dato:<br/>                        v.cfdi = dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;Cfdi&#x27;]<br/>                        v.tipo_cfdi = dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;TipoCfdi&#x27;]<br/>                        v.valor_numerico = str(dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;VolumenDocumentado&#x27;][&#x27;ValorNumerico&#x27;])<br/>                        aux += 1<br/>                    else:<br/>                        v.cfdi = &#x27;N/A&#x27;<br/>                        v.tipo_cfdi = &#x27;N/A&#x27;<br/>                        v.valor_numerico = &#x27;N/A&#x27;<br/>                    datos_json.append(v)<br/>    <br/>            aux2 = 0<br/>            aux3 = 0<br/>            for venta in ventas:<br/>                for dato in datos_json:<br/>                    if int(venta.numero_de_registro) == int(dato.numero_de_registro):<br/>                        if venta.estado == &#x27;Facturado&#x27; and dato.cfdi == &#x27;N/A&#x27;:<br/>                            facturados_sin_complemento.append([])<br/>                            facturados_sin_complemento[aux2].append(venta.numero_de_registro)<br/>                            facturados_sin_complemento[aux2].append(venta.cfdi)<br/>                            facturados_sin_complemento[aux2].append(venta.fecha)<br/>                            aux2 += 1<br/>    <br/>            json_entregas = int(json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalEntregas&#x27;]) + json_entregas<br/>            datos_ventas[&#x27;Entregas en JSON&#x27;] = len(datos_json)<br/>            datos_ventas[&#x27;Facturados en SGC ventas&#x27;] = facturados<br/>            datos_ventas[&#x27;Total Documentos JSON&#x27;] = aux<br/>            datos_ventas[&#x27;Diferencia de LT&#x27;] = float(datos_ventas[&#x27;Total Lt en SGC ventas&#x27;]) - float(datos_ventas[&#x27;Total entregado JSON&#x27;])<br/>            datos_ventas[&#x27;Diferencia de servicios&#x27;] = int(datos_ventas[&#x27;Cantidad de servicios&#x27;]) - int(datos_ventas[&#x27;Entregas en JSON&#x27;])<br/>            datos_ventas[&#x27;Diferencia facturas&#x27;] = int(datos_ventas[&#x27;Servicios Factutarados&#x27;]) - int(datos_ventas[&#x27;Total Documentos JSON&#x27;])<br/>    <br/>            lista_aux = []<br/>            i = 0<br/>            for venta in ventas:<br/>                lista_aux.append([])<br/>                lista_aux[i].append(venta.numero_de_registro)<br/>                lista_aux[i].append(venta.fecha)<br/>                lista_aux[i].append(venta.volumen_entregado)<br/>                lista_aux[i].append(venta.estado)<br/>                lista_aux[i].append(venta.cfdi)<br/>                lista_aux[i].append(venta.tipo_cfdi)<br/>                lista_aux[i].append(venta.valor_numerico)<br/>                i += 1<br/>    <br/>            lista_aux2 = []<br/>            i = 0<br/>            for venta in datos_json:<br/>                lista_aux2.append([])<br/>                lista_aux2[i].append(venta.numero_de_registro)<br/>                lista_aux2[i].append(venta.fecha)<br/>                lista_aux2[i].append(venta.volumen_entregado)<br/>                lista_aux2[i].append(venta.cfdi)<br/>                lista_aux2[i].append(venta.tipo_cfdi)<br/>                lista_aux2[i].append(venta.valor_numerico)<br/>                i += 1<br/>    <br/>            # for venta in lista_aux:<br/>            #     if any(str(venta[0]) not in sublist for sublist in lista_aux2):<br/>            #         ventas_que_no_aparecen.append([])<br/>            #         ventas_que_no_aparecen[aux3].append(venta[0])<br/>            #         ventas_que_no_aparecen[aux3].append(venta[3])<br/>            #         ventas_que_no_aparecen[aux3].append(venta[1])<br/>            #         aux3 += 1<br/>    <br/>            # for x in ventas:<br/>            #     print(&#x27;Num. Registro: &#x27; + x.numero_de_registro + &#x27; Fecha:&#x27; + x.fecha + &#x27; Estado: &#x27; + x.estado + &#x27; Volumen Entregado: &#x27; + x.volumen_entregado + &#x27; CFDI: &#x27; + x.cfdi + &#x27; Tipo CFDI: &#x27; + x.tipo_cfdi + &#x27; Valor Numercico: &#x27; + x.valor_numerico)<br/>            # for x in datos_json:<br/>            #     print(&#x27;Num. Registro: &#x27; + x.numero_de_registro + &#x27; Fecha: &#x27; + str(x.fecha) + &#x27; Volumen Entregado: &#x27; + x.volumen_entregado + &#x27; CFDI: &#x27; + x.cfdi + &#x27; Tipo CFDI: &#x27; + x.tipo_cfdi + &#x27; Valor Numercico: &#x27; + x.valor_numerico)<br/>            mensaje_de_salida(facturados_sin_complemento, datos_ventas, lista_aux, lista_aux2)<br/>&gt;           assert False, &#x27;D:&#x27;<br/><span class="error">E           AssertionError: D:</span><br/><span class="error">E           assert False</span><br/><br/>app/static/pruebas_sgc/test_ventas_vs_json_precargado.py:264: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>-------------------------------------------
+Datos y diferencias: 
+
+Fecha de inicio de informe :  2022-09-28
+Fecha de final de informe :  2022-09-29
+Cantidad de servicios :  47
+Servicios Factutarados :  35
+Total Lt en SGC ventas :  7428.123199999999
+Total entregado JSON :  7639.999000000001
+Entregas en JSON :  47
+Facturados en SGC ventas :  35
+Total Documentos JSON :  30
+Diferencia de LT :  -211.87580000000162
+Diferencia de servicios :  0
+Diferencia facturas :  5
+-------------------------------------------
+-------------------------------------------
+Facturados sin complementos: 
+
+╒════════════╤══════════════════════════════════════╤════════════════════╕
+│   Servicio │ CFDI                                 │ FECHA              │
+╞════════════╪══════════════════════════════════════╪════════════════════╡
+│       1882 │ 6ba1a094-4fd6-4665-a491-6fa48efc5fc6 │ 2022-09-29 11:20am │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1883 │ 0b068eab-4932-4ee0-80ef-89ce5dbce13c │ 2022-09-29 11:19am │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1886 │ 50a66784-5128-4770-84f1-602cdafe4956 │ 2022-09-29 11:30am │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1887 │ 50a66784-5128-4770-84f1-602cdafe4956 │ 2022-09-29 12:12pm │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1889 │ 6ef7a6a7-76ad-453e-9422-74856abd2255 │ 2022-09-29 12:14pm │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1898 │ dba5cc5e-d92a-4ef6-8aae-d0cb49657a32 │ 2022-09-29 01:51pm │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1899 │ 43aebb9f-fa5b-40b9-80bf-8c37c05e2e79 │ 2022-09-29 01:49pm │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1900 │ dba5cc5e-d92a-4ef6-8aae-d0cb49657a32 │ 2022-09-29 01:54pm │
+├────────────┼──────────────────────────────────────┼────────────────────┤
+│       1902 │ 72148b9e-0369-423e-98fc-5af85b95f8e6 │ 2022-09-29 01:55pm │
+╘════════════╧══════════════════════════════════════╧════════════════════╛
+-------------------------------------------
+Datos de ventas: 
+
+╒════════════════╤════════════════════╤═════════════════════╤═══════════╤══════════════════════════════════════╤═════════════╤══════════════════╕
+│   Num.registro │ Fecha              │   Volumen entregado │ Estado    │ CFDI                                 │ Tipo CFDI   │ Valor numerico   │
+╞════════════════╪════════════════════╪═════════════════════╪═══════════╪══════════════════════════════════════╪═════════════╪══════════════════╡
+│           1867 │ 2022-09-28 02:02pm │              1      │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1868 │ 2022-09-28 02:07pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1869 │ 2022-09-28 02:16pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1870 │ 2022-09-28 02:19pm │             42.5926 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1871 │ 2022-09-28 02:41pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1872 │ 2022-09-28 02:43pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1873 │ 2022-09-28 02:48pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1874 │ 2022-09-28 04:02pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1875 │ 2022-09-28 04:08pm │             16.0384 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 16.0384          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1876 │ 2022-09-28 04:10pm │             16.0384 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1877 │ 2022-09-28 04:16pm │             16.0384 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1878 │ 2022-09-28 05:15pm │             16.0384 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1879 │ 2022-09-28 05:21pm │             16.0384 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1880 │ 2022-09-29 08:35am │             16.0384 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1881 │ 2022-09-29 11:02am │             57.6923 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1882 │ 2022-09-29 11:20am │             15.5544 │ Facturado │ 6ba1a094-4fd6-4665-a491-6fa48efc5fc6 │ Ingreso     │ 15.5544          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1883 │ 2022-09-29 11:19am │             17.7666 │ Facturado │ 0b068eab-4932-4ee0-80ef-89ce5dbce13c │ Ingreso     │ 17.7666          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1884 │ 2022-09-29 11:23am │             32      │ Facturado │ 57728b66-2b4f-4e43-a1cd-35ab8e71296d │ Ingreso     │ 32.0000          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1885 │ 2022-09-29 11:30am │             23.2    │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 23.2000          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1886 │ 2022-09-29 11:30am │             30.0719 │ Facturado │ 50a66784-5128-4770-84f1-602cdafe4956 │ Ingreso     │ 30.0719          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1887 │ 2022-09-29 12:12pm │            322.4    │ Facturado │ 50a66784-5128-4770-84f1-602cdafe4956 │ Ingreso     │ 322.4000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1888 │ 2022-09-29 12:12pm │              9.0909 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1889 │ 2022-09-29 12:14pm │            295.2    │ Facturado │ 6ef7a6a7-76ad-453e-9422-74856abd2255 │ Ingreso     │ 295.2000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1890 │ 2022-09-29 12:20pm │            206.2    │ Facturado │ 57728b66-2b4f-4e43-a1cd-35ab8e71296d │ Ingreso     │ 206.2000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1891 │ 2022-09-29 12:19pm │            390.9    │ Facturado │ b3d7425c-9892-489d-97c7-762f42be2325 │ Ingreso     │ 390.9000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1892 │ 2022-09-29 12:26pm │            115.385  │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 115.3846         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1893 │ 2022-09-29 12:48pm │            288.462  │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 288.4615         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1894 │ 2022-09-29 12:51pm │            115.385  │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 115.3846         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1895 │ 2022-09-29 12:51pm │            230.769  │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 230.7692         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1896 │ 2022-09-29 01:17pm │            372.6    │ Facturado │ b3d7425c-9892-489d-97c7-762f42be2325 │ Ingreso     │ 372.6000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1897 │ 2022-09-29 01:52pm │            600      │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 600.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1898 │ 2022-09-29 01:51pm │           1257.4    │ Facturado │ dba5cc5e-d92a-4ef6-8aae-d0cb49657a32 │ Ingreso     │ 1257.4000        │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1899 │ 2022-09-29 01:49pm │            500      │ Facturado │ 43aebb9f-fa5b-40b9-80bf-8c37c05e2e79 │ Ingreso     │ 500.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1900 │ 2022-09-29 01:54pm │           1540.2    │ Facturado │ dba5cc5e-d92a-4ef6-8aae-d0cb49657a32 │ Ingreso     │ 1540.2000        │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1901 │ 2022-09-29 01:54pm │            200      │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 200.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1902 │ 2022-09-29 01:55pm │            500      │ Facturado │ 72148b9e-0369-423e-98fc-5af85b95f8e6 │ Ingreso     │ 500.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1903 │ 2022-09-29 09:42am │             15.4492 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 15.4492          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1904 │ 2022-09-29 01:48pm │              7.7246 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 7.7246           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1905 │ 2022-09-29 11:00am │             15.4492 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 15.4492          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1906 │ 2022-09-29 09:10am │             15.4492 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 15.4492          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1907 │ 2022-09-29 10:07am │             17.7216 │ Facturado │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ Ingreso     │ 17.7216          │
+╘════════════════╧════════════════════╧═════════════════════╧═══════════╧══════════════════════════════════════╧═════════════╧══════════════════╛
+-------------------------------------------
+Datos de JSON: 
+
+╒════════════════╤═════════════════════╤═════════════════════╤══════════════════════════════════════╤═════════════╤══════════════════╕
+│   Num.registro │ Fecha               │   Volumen entregado │ CFDI                                 │ Tipo CFDI   │ Valor numerico   │
+╞════════════════╪═════════════════════╪═════════════════════╪══════════════════════════════════════╪═════════════╪══════════════════╡
+│           1861 │ 2022-09-28 13:25:40 │              57.692 │ db96dd1c-471d-4b78-bce4-6f219b59d596 │ ingreso     │ 57.692           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1863 │ 2022-09-28 13:25:47 │              10     │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1862 │ 2022-09-28 13:29:06 │             111.111 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 111.111          │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1864 │ 2022-09-28 13:40:45 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1865 │ 2022-09-28 13:52:47 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1866 │ 2022-09-28 13:58:42 │               1     │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1867 │ 2022-09-28 14:02:02 │               1     │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1868 │ 2022-09-28 14:07:26 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1869 │ 2022-09-28 14:16:06 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1870 │ 2022-09-28 14:19:27 │              42.593 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 42.593           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1871 │ 2022-09-28 14:41:16 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1872 │ 2022-09-28 14:43:48 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1873 │ 2022-09-28 14:48:37 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1874 │ 2022-09-28 16:02:00 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1875 │ 2022-09-28 16:08:48 │              16.038 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 16.038           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1876 │ 2022-09-28 16:10:18 │              16.038 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1877 │ 2022-09-28 16:16:47 │              16.038 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1878 │ 2022-09-28 17:15:27 │              16.038 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1879 │ 2022-09-28 17:21:31 │              16.038 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1880 │ 2022-09-29 08:35:06 │              16.038 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1906 │ 2022-09-29 09:10:05 │              15.449 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 15.449           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1903 │ 2022-09-29 09:42:31 │              15.449 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 15.449           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1907 │ 2022-09-29 10:07:02 │              17.722 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 17.722           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1905 │ 2022-09-29 11:00:30 │              15.449 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 15.449           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1881 │ 2022-09-29 11:02:36 │              57.692 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 57.692           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1883 │ 2022-09-29 11:19:24 │              17.767 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1882 │ 2022-09-29 11:20:23 │              15.554 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1884 │ 2022-09-29 11:23:29 │              32     │ 57728b66-2b4f-4e43-a1cd-35ab8e71296d │ ingreso     │ 32               │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1885 │ 2022-09-29 11:30:42 │              23.2   │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 23.2             │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1886 │ 2022-09-29 11:30:59 │              30.072 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1887 │ 2022-09-29 12:12:07 │             322.4   │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1888 │ 2022-09-29 12:12:47 │               9.091 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 9.091            │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1889 │ 2022-09-29 12:14:40 │             295.2   │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1891 │ 2022-09-29 12:19:59 │             390.9   │ b3d7425c-9892-489d-97c7-762f42be2325 │ ingreso     │ 390.9            │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1890 │ 2022-09-29 12:20:42 │             206.2   │ 57728b66-2b4f-4e43-a1cd-35ab8e71296d │ ingreso     │ 206.2            │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1892 │ 2022-09-29 12:26:00 │             115.385 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 115.385          │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1893 │ 2022-09-29 12:48:25 │             288.462 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 288.462          │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1894 │ 2022-09-29 12:51:13 │             115.385 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 115.385          │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1895 │ 2022-09-29 12:51:52 │             230.769 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 230.769          │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1896 │ 2022-09-29 13:17:18 │             372.6   │ b3d7425c-9892-489d-97c7-762f42be2325 │ ingreso     │ 372.6            │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1904 │ 2022-09-29 13:48:41 │               7.725 │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 7.725            │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1899 │ 2022-09-29 13:49:40 │             500     │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1898 │ 2022-09-29 13:51:53 │            1257.4   │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1897 │ 2022-09-29 13:52:39 │             600     │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 600              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1900 │ 2022-09-29 13:54:05 │            1540.2   │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1901 │ 2022-09-29 13:54:30 │             200     │ e5a6e6d5-3c1c-4031-b0de-e8a0cfabf54c │ ingreso     │ 200              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           1902 │ 2022-09-29 13:55:10 │             500     │ N/A                                  │ N/A         │ N/A              │
+╘════════════════╧═════════════════════╧═════════════════════╧══════════════════════════════════════╧═════════════╧══════════════════╛
+-------------------------------------------
+<br/></div></td></tr></tbody></table></body></html>

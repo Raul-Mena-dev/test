@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>10-17-2022-12-50-51</h1>
+    <p>Report generated on 17-Oct-2022 at 12:50:51 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 206.76 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_json_mensual.py::test_ventas_vs_json</td>
+          <td class="col-duration">206.72</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>-------------------------------------------
+-------------------------------------------
+Datos y diferencias: 
+
+-------------------------------------------
+Datos en inventario:
+
+----------------Recepciones----------------
+Fecha Inventario: 2022-10
+Total de cargas: 8
+Volumen Compensado: 16260.300000000003
+-------------------------------------------
+------------------Ventas-------------------
+-------------------------------------------
+Datos en SGC Ventas:
+
+Mes del reporte :  2022-10
+Cantidad de servicios :  168
+Servicios Facturados :  85
+Servicios Terminados :  83
+-------------------------------------------
+-------------------------------------------
+Datos en JSON:
+
+--------------Recepciones JSON-------------
+Total Recepciones: 8
+---------------Entregas JSON---------------
+Entregas en nodo entregas en JSON :  126
+Documentos en nodo entregas en JSON :  56
+Conteo Entregas en JSON :  126
+Conteo Facturados en JSON :  56
+Total entregas JSON :  182
+Facturas sin Complementos :  27
+-------------------------------------------
+-------------------------------------------
+Diferencias:
+
+Diferencia en entregas vs nodo Total entregas JSON :  0
+Diferencia en Documentos vs nodo Total Documentos JSON :  0
+Diferencia de servicios :  14
+Diferencia facturas en JSON :  29
+-------------------------------------------
+-------------------------------------------
+Datos de Servicios de descarga: 
+
+╒═════════╤══════════════════════════════════════╤═══════════╤══════════════════════╤════════════════════╕
+│   Folio │ Folio Fiscal                         │ Estado    │ Volumen Compensado   │ Fecha              │
+╞═════════╪══════════════════════════════════════╪═══════════╪══════════════════════╪════════════════════╡
+│      36 │                                      │ Terminado │ 3,688.73             │ 2022-10-14 04:17pm │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      35 │                                      │ Terminado │ 1,851.12             │ 2022-10-13 11:17am │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      34 │ 3354120                              │ Terminado │ 1,846.68             │ 2022-10-13 10:57am │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      33 │                                      │ Terminado │ 925.19               │ 2022-10-13 10:24am │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      32 │                                      │ Terminado │ 5,863.38             │ 2022-10-11 01:48pm │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      31 │                                      │ Terminado │ 156.85               │ 2022-10-11 01:42pm │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      30 │                                      │ Terminado │ 75.74                │ 2022-10-11 01:40pm │
+├─────────┼──────────────────────────────────────┼───────────┼──────────────────────┼────────────────────┤
+│      29 │ 3B87E9EE-22EA-481B-671L-DPA958588F12 │ Terminado │ 1,852.61             │ 2022-10-04 04:37pm │
+╘═════════╧══════════════════════════════════════╧═══════════╧══════════════════════╧════════════════════╛
+-------------------------------------------
+-------------------------------------------
+Datos de ventas: 
+
+╒════════════════╤════════════════════╤═════════════════════╤═══════════╤══════════════════════════════════════╤═════════════╤════════════╤══════════════════╕
+│   Num.registro │ Fecha              │   Volumen entregado │ Estado    │ CFDI                                 │ Tipo CFDI   │ Estatus    │ Valor numerico   │
+╞════════════════╪════════════════════╪═════════════════════╪═══════════╪══════════════════════════════════════╪═════════════╪════════════╪══════════════════╡
+│           1982 │ 2022-10-03 11:31am │             57.6923 │ Facturado │ 5fa27df4-cbbb-47ef-a2bb-880cc7eebd10 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1983 │ 2022-10-03 11:38am │             57.6923 │ Facturado │ ed63d050-5f86-4da9-af26-f36869e5a812 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1984 │ 2022-10-03 11:40am │             42.5926 │ Facturado │ 35016f3a-f23c-45d2-acee-e766ea99ff5d │ ingreso     │ Pagada     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1985 │ 2022-10-03 11:40am │             57.6923 │ Facturado │ 79ac548c-145a-4696-99d4-bbb7ebb408c5 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1986 │ 2022-10-03 11:40am │              9.0909 │ Facturado │ d6674ae1-f267-4eeb-a84c-3c60d6a271ea │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1987 │ 2022-10-03 11:40am │            111.111  │ Facturado │ 8be33462-cc9d-4185-9c5e-bbb798154c55 │ ingreso     │ Pagada     │ 111.1111         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1988 │ 2022-10-03 11:41am │            127.778  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1989 │ 2022-10-03 11:41am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1990 │ 2022-10-03 11:41am │            158.416  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1991 │ 2022-10-03 11:41am │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1992 │ 2022-10-03 11:41am │             18.1818 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1993 │ 2022-10-03 11:43am │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1994 │ 2022-10-03 11:43am │              4      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1995 │ 2022-10-03 11:43am │              2      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1996 │ 2022-10-03 11:43am │            115.385  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1997 │ 2022-10-03 11:43am │             15.8416 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1998 │ 2022-10-03 11:43am │              5      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           1999 │ 2022-10-03 11:43am │              3      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2000 │ 2022-10-03 11:43am │            170.37   │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2001 │ 2022-10-03 11:43am │            666.667  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2002 │ 2022-10-03 11:47am │             50      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2003 │ 2022-10-03 12:09pm │            222.222  │ Facturado │ 903c8577-58d7-4e1d-8267-1c88508c18e8 │ ingreso     │ Pagada     │ 222.2222         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2004 │ 2022-10-03 12:10pm │            222.222  │ Facturado │ 0d928dfe-0d94-496e-8e43-171ef12addfe │ ingreso     │ Pagada     │ 222.2222         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2005 │ 2022-10-03 12:10pm │             57.6923 │ Facturado │ e6900119-ce82-499b-8127-c1b8b55bebef │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2006 │ 2022-10-03 12:10pm │              9.0909 │ Facturado │ 60733526-9d11-4902-ae30-f635fbc9a3bd │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2007 │ 2022-10-03 12:09pm │             31.6832 │ Facturado │ b5b50ced-de02-4fca-b4a9-59b1b534e02b │ ingreso     │ Pagada     │ 31.6832          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2008 │ 2022-10-03 12:09pm │             85.1852 │ Facturado │ c2309c55-88f7-4ae6-8e79-bf45d6a9fe4a │ ingreso     │ Pagada     │ 85.1852          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2009 │ 2022-10-03 12:09pm │             18.1818 │ Facturado │ 81b674cc-97ad-4c60-a609-5818b315a683 │ ingreso     │ Pagada     │ 18.1818          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2010 │ 2022-10-03 12:09pm │             57.6923 │ Facturado │ 18e3603d-efd9-4c6d-925c-e90b6f3699cf │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2011 │ 2022-10-03 12:10pm │             42.5926 │ Facturado │ e017c538-8a82-47fa-8a04-d1f2a071be48 │ ingreso     │ Pagada     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2012 │ 2022-10-03 12:15pm │            333.333  │ Facturado │ 0cffd367-5032-40e7-aa83-20b628601e43 │ ingreso     │ Pagada     │ 333.3333         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2013 │ 2022-10-03 12:15pm │             47.5248 │ Facturado │ 1ae5e6fc-f912-4262-a599-626f94dbbef0 │ ingreso     │ Pagada     │ 47.5248          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2014 │ 2022-10-03 12:15pm │            173.077  │ Facturado │ 41685f75-f185-459e-95e2-eec166d8f345 │ ingreso     │ Pagada     │ 173.0769         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2015 │ 2022-10-03 12:15pm │             27.2727 │ Facturado │ 17a4b229-c7f3-4c07-8cdc-81fa3b7ac303 │ ingreso     │ Pagada     │ 27.2727          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2016 │ 2022-10-03 12:15pm │            127.778  │ Facturado │ 593a2eef-5c8e-4f64-a539-bf13d34b0d1c │ ingreso     │ Pagada     │ 127.7778         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2017 │ 2022-10-03 12:20pm │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2018 │ 2022-10-03 12:46pm │              9.0909 │ Facturado │ c4187bf9-1c28-4aad-9738-12ae4f1bec15 │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2019 │ 2022-10-03 12:51pm │            288.462  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2020 │ 2022-10-03 12:53pm │            115.385  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2021 │ 2022-10-03 12:55pm │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2022 │ 2022-10-03 12:56pm │             42.5926 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2023 │ 2022-10-03 12:55pm │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2024 │ 2022-10-03 12:55pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2025 │ 2022-10-03 01:12pm │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2026 │ 2022-10-03 01:15pm │             15.8416 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2027 │ 2022-10-03 01:12pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2028 │ 2022-10-03 01:12pm │             42.5926 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2029 │ 2022-10-03 02:05pm │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2030 │ 2022-10-03 02:17pm │             50      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2031 │ 2022-10-03 02:19pm │             47.7    │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2032 │ 2022-10-03 02:23pm │              5      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2033 │ 2022-10-03 02:29pm │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2034 │ 2022-10-03 02:33pm │              3.5323 │ Facturado │ 486246fb-00f1-461f-a98c-1a7f9fd504cd │ ingreso     │ Pagada     │ 3.5323           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2035 │ 2022-10-03 02:39pm │             60      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2036 │ 2022-10-03 02:41pm │             40      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2037 │ 2022-10-03 02:42pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2038 │ 2022-10-03 04:35pm │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2039 │ 2022-10-03 04:42pm │             15.8416 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2040 │ 2022-10-03 05:07pm │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2041 │ 2022-10-03 05:07pm │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2042 │ 2022-10-04 11:53am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2043 │ 2022-10-04 11:54am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2044 │ 2022-10-04 12:14pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2045 │ 2022-10-04 12:19pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2046 │ 2022-10-04 12:17pm │            500      │ Facturado │ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ ingreso     │ Pagada     │ 500.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2047 │ 2022-10-04 12:26pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2048 │ 2022-10-04 12:33pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2049 │ 2022-10-04 12:43pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2050 │ 2022-10-04 12:45pm │            653.5    │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2051 │ 2022-10-04 12:53pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2052 │ 2022-10-04 01:48pm │            500      │ Facturado │ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ ingreso     │ Pagada     │ 500.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2053 │ 2022-10-04 01:59pm │             57.6923 │ Facturado │ 5a622c73-5f56-490f-ba80-92ff2c481a53 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2054 │ 2022-10-04 02:14pm │             57.6923 │ Facturado │ bb3b748c-6686-4aba-9442-33cc412dc9a7 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2055 │ 2022-10-04 04:05pm │            620.6    │ Facturado │ 6c5c8cf7-6981-49b4-a670-750dc98f1547 │ ingreso     │ Pagada     │ 620.6000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2056 │ 2022-10-04 05:16pm │            354      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2057 │ 2022-10-04 05:32pm │            410      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2058 │ 2022-10-04 05:34pm │            120.017  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2059 │ 2022-10-05 02:25pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2060 │ 2022-10-05 02:25pm │             57.6923 │ Facturado │ a076fb2e-344b-4463-ab0e-1aba1c0390df │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2061 │ 2022-10-05 02:25pm │            288.462  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2062 │ 2022-10-05 02:28pm │            115.385  │ Facturado │ 3ea48dbf-6582-45ba-bd84-46f17be98e06 │ ingreso     │ Pagada     │ 115.3846         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2063 │ 2022-10-05 02:29pm │              9.0909 │ Facturado │                                      │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2064 │ 2022-10-05 02:29pm │            111.111  │ Facturado │ 6d885747-80c2-417d-b475-790fa3715954 │ ingreso     │ Pagada     │ 111.1111         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2065 │ 2022-10-05 02:30pm │             57.6923 │ Facturado │ a85dbf41-dede-4ee4-8235-d10c2e192997 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2066 │ 2022-10-05 02:30pm │             15.8416 │ Facturado │ b00de484-b524-43f1-b76f-c9e98a9c96ad │ ingreso     │ Pagada     │ 15.8416          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2067 │ 2022-10-05 02:30pm │              9.0909 │ Facturado │ 3f128cf7-9611-4988-94e8-60768add109e │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2068 │ 2022-10-05 02:30pm │            111.111  │ Facturado │ 3464209e-1220-43ec-953e-38fd7ab3380e │ ingreso     │ Pagada     │ 111.1111         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2069 │ 2022-10-05 02:30pm │             42.5926 │ Facturado │ 52b2c0c3-f526-48b7-8ad2-4a666be06576 │ ingreso     │ Pagada     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2070 │ 2022-10-05 02:35pm │             42.5926 │ Facturado │ da437bbc-1c16-4b0b-abac-63b3d728d0f4 │ ingreso     │ Pagada     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2071 │ 2022-10-05 02:35pm │             57.6923 │ Facturado │ dc1aa03f-8556-47f3-acd9-c674ddc699a7 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2072 │ 2022-10-05 02:35pm │            111.111  │ Facturado │ f827b750-8241-4f7a-9670-3a5b1abf01ef │ ingreso     │ Pagada     │ 111.1111         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2073 │ 2022-10-05 02:35pm │             15.8416 │ Facturado │ 159a6c08-9368-4bda-a7d7-ec1fb033418d │ ingreso     │ Pagada     │ 15.8416          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2074 │ 2022-10-05 02:35pm │              9.0909 │ Facturado │ 332f295f-da64-4e2c-8461-050bf53d1e5e │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2075 │ 2022-10-05 02:35pm │              9.0909 │ Facturado │ 6e1bc50e-fdaa-4890-8f9e-264e90e67c8b │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2076 │ 2022-10-05 02:35pm │            111.111  │ Facturado │ 9e8076e2-f831-42c7-8ed1-1dee10fee971 │ ingreso     │ Pagada     │ 111.1111         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2077 │ 2022-10-05 02:36pm │             42.5926 │ Facturado │ 36a69e53-c022-412d-a2ab-c6abf0c97790 │ ingreso     │ Pagada     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2078 │ 2022-10-05 02:36pm │             57.6923 │ Facturado │ 45ecfd0d-8844-4917-96ae-0d8e3f7e9d5c │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2079 │ 2022-10-05 02:36pm │              9.0909 │ Facturado │ 3e080efc-0cad-4d37-9d51-65f95e7b08e0 │ ingreso     │ Pagada     │ 9.0909           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2080 │ 2022-10-05 02:35pm │             57.6923 │ Facturado │ 1cd27584-475a-417d-a899-f0116b33f6e2 │ ingreso     │ Pagada     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2081 │ 2022-10-05 02:35pm │             42.5926 │ Facturado │ 269faf46-d22e-499d-ba5e-16bbf3008cf4 │ ingreso     │ Pagada     │ 42.5926          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2082 │ 2022-10-05 02:36pm │            111.111  │ Facturado │ af6bb4aa-e909-4d8c-bf41-513121c9ebc9 │ ingreso     │ Pagada     │ 111.1111         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2083 │ 2022-10-05 02:36pm │             15.8416 │ Facturado │ ef947726-1f47-456c-886f-47d0f8249973 │ ingreso     │ Pagada     │ 15.8416          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2084 │ 2022-10-05 02:35pm │             15.8416 │ Facturado │ 697bb36d-6467-4100-bfe1-21184e0dd814 │ ingreso     │ Pagada     │ 15.8416          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2085 │ 2022-10-06 10:34am │             36      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2086 │ 2022-10-05 10:58am │             74.8    │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2087 │ 2022-10-05 11:05am │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2088 │ 2022-10-05 10:59am │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2089 │ 2022-10-05 01:34pm │             65      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2090 │ 2022-10-05 11:16am │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2091 │ 2022-10-06 12:46pm │             10.2607 │ Facturado │ d4e3c7d9-2a26-4899-ab00-3839dbe7b820 │ ingreso     │ Pagada     │ 10.2607          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2092 │ 2022-10-06 01:10pm │             19.9327 │ Facturado │ 8d446c11-ca9b-4a65-8296-d6a3c9e02323 │ ingreso     │ Pagada     │ 19.9327          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2093 │ 2022-10-06 01:32pm │             16.7367 │ Facturado │ 3735fdaa-7806-49fa-af0e-4c226fbe3026 │ ingreso     │ Pagada     │ 16.7367          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2094 │ 2022-10-06 01:33pm │             40.4541 │ Facturado │ 4ef617a9-a07f-4dee-b111-02d632024bd6 │ ingreso     │ Pagada     │ 40.4541          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2095 │ 2022-10-06 01:42pm │             38.2674 │ Facturado │ 4ef617a9-a07f-4dee-b111-02d632024bd6 │ ingreso     │ Pagada     │ 38.2674          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2096 │ 2022-10-06 02:01pm │             23.2127 │ Facturado │ 91e15533-6527-48c5-85be-1ab861626597 │ ingreso     │ Pagada     │ 23.2127          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2097 │ 2022-10-06 02:01pm │             38.0992 │ Facturado │ 4a969625-50f1-459c-b14a-abd3f6635d01 │ ingreso     │ Pagada     │ 38.0992          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2098 │ 2022-10-07 10:05am │             30.2775 │ Facturado │ 567732bc-1722-41cd-ba3c-3e15a13055fc │ ingreso     │ Pagada     │ 30.2775          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2099 │ 2022-10-10 10:28am │             10.0775 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2100 │ 2022-10-10 10:30am │             65.5    │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2101 │ 2022-10-11 04:05pm │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2102 │ 2022-10-11 04:25pm │             40      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2103 │ 2022-10-11 04:27pm │             10      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2104 │ 2022-10-11 04:29pm │            100      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2105 │ 2022-10-11 04:29pm │            115.385  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2106 │ 2022-10-12 09:39am │              1      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2107 │ 2022-10-12 09:41am │             16.2321 │ Facturado │ af6bb4aa-e909-4d8c-bf41-513121c9ebc9 │ ingreso     │ Pagada     │ 16.2321          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2108 │ 2022-10-12 09:44am │             17.9142 │ Facturado │ e73e7776-26ee-48b4-ad7e-f4e12c138949 │ ingreso     │ Pagada     │ 17.9142          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2109 │ 2022-10-12 09:45am │              1      │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2110 │ 2022-10-12 09:52am │             18.3347 │ Facturado │ 69bc2fc1-0a55-4075-865a-0a599f004cfd │ ingreso     │ Pagada     │ 18.3347          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2111 │ 2022-10-12 09:48am │             29.6047 │ Facturado │ e73e7776-26ee-48b4-ad7e-f4e12c138949 │ ingreso     │ Pagada     │ 29.6047          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2112 │ 2022-10-12 09:54am │             25.2312 │ Facturado │ 69bc2fc1-0a55-4075-865a-0a599f004cfd │ ingreso     │ Pagada     │ 25.2312          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2113 │ 2022-10-12 10:07am │             40.9587 │ Facturado │ 06018550-e066-4002-a1c9-550551d98245 │ ingreso     │ Pagada     │ 40.9587          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2114 │ 2022-10-12 10:14am │             37.2582 │ Facturado │ 06018550-e066-4002-a1c9-550551d98245 │ ingreso     │ Pagada     │ 37.2582          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2115 │ 2022-10-12 10:13am │             40.9587 │ Facturado │ 9b7ff898-dafd-4432-a24a-38d8c8302b7c │ ingreso     │ Pagada     │ 40.9587          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2116 │ 2022-10-12 10:23am │             27.4179 │ Facturado │ 6a9d8c4c-ecfe-4884-8412-98bb976d5653 │ ingreso     │ Pagada     │ 27.4179          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2117 │ 2022-10-12 10:28am │             27.6703 │ Facturado │ 2adab477-7f4e-4015-88e7-0517f2c9d0d2 │ ingreso     │ Pagada     │ 27.6703          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2118 │ 2022-10-12 10:27am │             27.6703 │ Facturado │ 2adab477-7f4e-4015-88e7-0517f2c9d0d2 │ ingreso     │ Pagada     │ 27.6703          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2119 │ 2022-10-12 10:35am │             26.9974 │ Facturado │ 6a9d8c4c-ecfe-4884-8412-98bb976d5653 │ ingreso     │ Pagada     │ 26.9974          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2120 │ 2022-10-12 10:57am │             20.4373 │ Facturado │ 46c57460-da2c-42a7-b308-06aafd4a2a31 │ ingreso     │ Pagada     │ 20.4373          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2121 │ 2022-10-12 11:02am │             12.7838 │ Facturado │ 46c57460-da2c-42a7-b308-06aafd4a2a31 │ ingreso     │ Pagada     │ 12.7838          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2122 │ 2022-10-12 11:18am │             10.3448 │ Facturado │ 9b7ff898-dafd-4432-a24a-38d8c8302b7c │ ingreso     │ Pagada     │ 10.3448          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2123 │ 2022-10-12 11:44am │             42.5926 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2124 │ 2022-10-12 11:44am │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2125 │ 2022-10-12 11:44am │             15.8416 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2126 │ 2022-10-12 11:44am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2127 │ 2022-10-12 11:44am │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2128 │ 2022-10-12 11:45am │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2129 │ 2022-10-12 11:45am │             42.5926 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2130 │ 2022-10-12 11:45am │              9.0909 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2131 │ 2022-10-12 11:45am │             15.8416 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2132 │ 2022-10-12 11:45am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2133 │ 2022-10-12 11:47am │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2134 │ 2022-10-12 11:47am │            115.385  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2135 │ 2022-10-12 11:47am │             15.8416 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2136 │ 2022-10-12 12:09pm │             17.746  │ Facturado │ 4da19f90-e115-4187-a550-14705428ffe2 │ ingreso     │ Por cobrar │ 17.7460          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2137 │ 2022-10-12 12:11pm │             33.3052 │ Facturado │ 7f0ed7a7-eb11-4db3-a9dc-03f1ec81fec4 │ ingreso     │ Por cobrar │ 33.3052          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2138 │ 2022-10-12 12:14pm │              4.037  │ Facturado │ 180bb1bf-54c0-4809-bd54-5097d51e7ca6 │ ingreso     │ Por cobrar │ 4.0370           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2139 │ 2022-10-12 12:16pm │              3.5323 │ Facturado │ eefea08f-c3f5-4612-90fc-84e478e19c90 │ ingreso     │ Pagada     │ 3.5323           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2140 │ 2022-10-12 12:16pm │              3.5323 │ Facturado │ eefea08f-c3f5-4612-90fc-84e478e19c90 │ ingreso     │ Pagada     │ 3.5323           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2141 │ 2022-10-12 12:18pm │              9.9243 │ Facturado │ 27926fef-690c-461e-8ad3-6b771918e9f5 │ ingreso     │ Por cobrar │ 9.9243           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2142 │ 2022-10-12 12:21pm │             32.296  │ Facturado │ 27926fef-690c-461e-8ad3-6b771918e9f5 │ ingreso     │ Por cobrar │ 32.2960          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2143 │ 2022-10-12 12:45pm │             34.4827 │ Facturado │ 7de72a11-dc16-48d6-ba6f-93d3f78354fa │ ingreso     │ Por cobrar │ 34.4827          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2144 │ 2022-10-12 12:49pm │              9.8402 │ Facturado │ f2e491c2-6174-49e4-bee5-1c4bf1e9ea1d │ ingreso     │ Por cobrar │ 9.8402           │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2145 │ 2022-10-12 12:48pm │             26.7451 │ Facturado │ 37beba84-a94a-4d93-af24-55d97bd9bd0a │ ingreso     │ Por cobrar │ 26.7451          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2146 │ 2022-10-12 12:47pm │             24.3061 │ Facturado │ 7f3e404e-0acb-4b5c-8173-2600ca0e80a6 │ ingreso     │ Por cobrar │ 24.3061          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2147 │ 2022-10-11 03:14pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2148 │ 2022-10-13 09:17am │            111.111  │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼────────────┼──────────────────┤
+│           2149 │ 2022-10-13 02:35pm │              9.8522 │ Terminado │ N/A                                  │ N/A         │ N/A        │ N/A              │
+╘════════════════╧════════════════════╧═════════════════════╧═══════════╧══════════════════════════════════════╧═════════════╧════════════╧══════════════════╛
+-------------------------------------------
+-------------------------------------------
+Datos de JSON(Entregas): 
+
+╒══════════════════════════════════════╤═══════════════════════╤═════════════════════╕
+│ CFDIs                                │ Tipo de CFDI          │ Fecha               │
+╞══════════════════════════════════════╪═══════════════════════╪═════════════════════╡
+│ 5fa27df4-cbbb-47ef-a2bb-880cc7eebd10 │ ingreso               │ 2022-10-17 10:07:51 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ed63d050-5f86-4da9-af26-f36869e5a812 │ ingreso               │ 2022-10-17 10:09:38 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 79ac548c-145a-4696-99d4-bbb7ebb408c5 │ ingreso               │ 2022-10-17 10:05:50 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ d6674ae1-f267-4eeb-a84c-3c60d6a271ea │ ingreso               │ 2022-10-17 10:07:32 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 8be33462-cc9d-4185-9c5e-bbb798154c55 │ ingreso               │ 2022-10-17 10:07:42 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 35016f3a-f23c-45d2-acee-e766ea99ff5d │ ingreso               │ 2022-10-17 10:09:07 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 1                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 2                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 3                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 4                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 5                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 6                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 7                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 8                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 9                       │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 10                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 11                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 12                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 13                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 14                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 15                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ c4187bf9-1c28-4aad-9738-12ae4f1bec15 │ ingreso               │ 2022-10-17 10:05:58 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 16                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 17                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 18                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 19                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 20                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 21                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 22                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 23                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 24                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 25                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 26                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 27                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 28                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 29                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 30                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 486246fb-00f1-461f-a98c-1a7f9fd504cd │ ingreso               │ 2022-10-04 14:01:43 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 31                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 32                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 33                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 34                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 35                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 36                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ ingreso               │ 2022-10-04 17:33:23 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 37                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 38                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 39                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 40                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 41                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 42                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ ingreso               │ 2022-10-04 17:33:23 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 5a622c73-5f56-490f-ba80-92ff2c481a53 │ ingreso               │ 2022-10-05 13:16:30 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ bb3b748c-6686-4aba-9442-33cc412dc9a7 │ ingreso               │ 2022-10-04 17:27:52 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 6c5c8cf7-6981-49b4-a670-750dc98f1547 │ ingreso               │ 2022-10-04 17:29:33 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 43                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 44                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 45                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 46                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 47                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 48                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 49                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 50                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 51                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ a076fb2e-344b-4463-ab0e-1aba1c0390df │ ingreso               │ 2022-10-05 14:30:18 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 52                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 3ea48dbf-6582-45ba-bd84-46f17be98e06 │ ingreso               │ 2022-10-05 14:30:39 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 1cd27584-475a-417d-a899-f0116b33f6e2 │ ingreso               │ 2022-10-17 10:03:18 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 6e1bc50e-fdaa-4890-8f9e-264e90e67c8b │ ingreso               │ 2022-10-17 10:03:40 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 9e8076e2-f831-42c7-8ed1-1dee10fee971 │ ingreso               │ 2022-10-17 10:10:16 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 269faf46-d22e-499d-ba5e-16bbf3008cf4 │ ingreso               │ 2022-10-17 10:06:59 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 697bb36d-6467-4100-bfe1-21184e0dd814 │ ingreso               │ 2022-10-06 09:11:40 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 3e080efc-0cad-4d37-9d51-65f95e7b08e0 │ ingreso               │ 2022-10-17 10:04:49 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ af6bb4aa-e909-4d8c-bf41-513121c9ebc9 │ ingreso               │ 2022-10-14 08:57:00 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 45ecfd0d-8844-4917-96ae-0d8e3f7e9d5c │ ingreso               │ 2022-10-17 10:09:59 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 36a69e53-c022-412d-a2ab-c6abf0c97790 │ ingreso               │ 2022-10-17 10:02:46 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ef947726-1f47-456c-886f-47d0f8249973 │ ingreso               │ 2022-10-06 09:17:39 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ d4e3c7d9-2a26-4899-ab00-3839dbe7b820 │ ingreso               │ 2022-10-07 10:00:23 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 8d446c11-ca9b-4a65-8296-d6a3c9e02323 │ ingreso               │ 2022-10-07 10:00:41 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 3735fdaa-7806-49fa-af0e-4c226fbe3026 │ ingreso               │ 2022-10-07 10:01:04 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 4ef617a9-a07f-4dee-b111-02d632024bd6 │ ingreso               │ 2022-10-06 14:01:49 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 4ef617a9-a07f-4dee-b111-02d632024bd6 │ ingreso               │ 2022-10-06 14:01:49 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 91e15533-6527-48c5-85be-1ab861626597 │ ingreso               │ 2022-10-07 10:01:48 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 4a969625-50f1-459c-b14a-abd3f6635d01 │ ingreso               │ 2022-10-07 10:02:05 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 53                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 54                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 55                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ af6bb4aa-e909-4d8c-bf41-513121c9ebc9 │ ingreso               │ 2022-10-14 08:57:00 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ e73e7776-26ee-48b4-ad7e-f4e12c138949 │ ingreso               │ 2022-10-12 10:03:54 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 56                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ e73e7776-26ee-48b4-ad7e-f4e12c138949 │ ingreso               │ 2022-10-12 10:03:54 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 69bc2fc1-0a55-4075-865a-0a599f004cfd │ ingreso               │ 2022-10-12 10:10:31 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 69bc2fc1-0a55-4075-865a-0a599f004cfd │ ingreso               │ 2022-10-12 10:10:31 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 9b7ff898-dafd-4432-a24a-38d8c8302b7c │ ingreso               │ 2022-10-12 11:34:29 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 06018550-e066-4002-a1c9-550551d98245 │ ingreso               │ 2022-10-12 12:06:19 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 6a9d8c4c-ecfe-4884-8412-98bb976d5653 │ ingreso               │ 2022-10-12 11:20:54 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 2adab477-7f4e-4015-88e7-0517f2c9d0d2 │ ingreso               │ 2022-10-12 10:40:30 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 2adab477-7f4e-4015-88e7-0517f2c9d0d2 │ ingreso               │ 2022-10-12 10:40:30 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 6a9d8c4c-ecfe-4884-8412-98bb976d5653 │ ingreso               │ 2022-10-12 11:20:54 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 46c57460-da2c-42a7-b308-06aafd4a2a31 │ ingreso               │ 2022-10-12 11:14:48 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 46c57460-da2c-42a7-b308-06aafd4a2a31 │ ingreso               │ 2022-10-12 11:14:48 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 57                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 58                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 59                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 60                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 61                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 62                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 63                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 64                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 65                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 66                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 67                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 68                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 69                      │ Venta sin complemento │ 2022-10             │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 4da19f90-e115-4187-a550-14705428ffe2 │ ingreso               │ 2022-10-17 09:58:14 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 7f0ed7a7-eb11-4db3-a9dc-03f1ec81fec4 │ ingreso               │ 2022-10-17 09:59:45 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 180bb1bf-54c0-4809-bd54-5097d51e7ca6 │ ingreso               │ 2022-10-17 09:59:33 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ eefea08f-c3f5-4612-90fc-84e478e19c90 │ ingreso               │ 2022-10-12 12:38:01 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ eefea08f-c3f5-4612-90fc-84e478e19c90 │ ingreso               │ 2022-10-12 12:38:01 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 27926fef-690c-461e-8ad3-6b771918e9f5 │ ingreso               │ 2022-10-12 12:29:26 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 27926fef-690c-461e-8ad3-6b771918e9f5 │ ingreso               │ 2022-10-12 12:29:26 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 7de72a11-dc16-48d6-ba6f-93d3f78354fa │ ingreso               │ 2022-10-17 09:59:02 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 7f3e404e-0acb-4b5c-8173-2600ca0e80a6 │ ingreso               │ 2022-10-17 09:58:54 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ 37beba84-a94a-4d93-af24-55d97bd9bd0a │ ingreso               │ 2022-10-17 09:58:42 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ f2e491c2-6174-49e4-bee5-1c4bf1e9ea1d │ ingreso               │ 2022-10-17 09:58:35 │
+├──────────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ ID interno = 70                      │ Venta sin complemento │ 2022-10             │
+╘══════════════════════════════════════╧═══════════════════════╧═════════════════════╛
+-------------------------------------------
+-------------------------------------------
+Datos de JSON(Recepciones): 
+
+╒══════════════════════════════════════╤═════════╕
+│ Num.registro                         │ Fecha   │
+╞══════════════════════════════════════╪═════════╡
+│ 3B87E9EE-22EA-481B-671L-DPA958588F12 │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│                                      │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│                                      │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│                                      │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│                                      │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│ 3354120                              │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│                                      │ ingreso │
+├──────────────────────────────────────┼─────────┤
+│                                      │ ingreso │
+╘══════════════════════════════════════╧═════════╛
+-------------------------------------------
+-------------------------------------------
+Facturados sin complementos: 
+
+╒════════════╤══════════════════════════════════════╤════════════════════╤═══════════╕
+│   Servicio │ CFDI                                 │ Fecha              │ Estatus   │
+╞════════════╪══════════════════════════════════════╪════════════════════╪═══════════╡
+│       2003 │ 903c8577-58d7-4e1d-8267-1c88508c18e8 │ 2022-10-03 12:09pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2004 │ 0d928dfe-0d94-496e-8e43-171ef12addfe │ 2022-10-03 12:10pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2005 │ e6900119-ce82-499b-8127-c1b8b55bebef │ 2022-10-03 12:10pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2006 │ 60733526-9d11-4902-ae30-f635fbc9a3bd │ 2022-10-03 12:10pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2007 │ b5b50ced-de02-4fca-b4a9-59b1b534e02b │ 2022-10-03 12:09pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2008 │ c2309c55-88f7-4ae6-8e79-bf45d6a9fe4a │ 2022-10-03 12:09pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2009 │ 81b674cc-97ad-4c60-a609-5818b315a683 │ 2022-10-03 12:09pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2010 │ 18e3603d-efd9-4c6d-925c-e90b6f3699cf │ 2022-10-03 12:09pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2011 │ e017c538-8a82-47fa-8a04-d1f2a071be48 │ 2022-10-03 12:10pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2012 │ 0cffd367-5032-40e7-aa83-20b628601e43 │ 2022-10-03 12:15pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2013 │ 1ae5e6fc-f912-4262-a599-626f94dbbef0 │ 2022-10-03 12:15pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2014 │ 41685f75-f185-459e-95e2-eec166d8f345 │ 2022-10-03 12:15pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2015 │ 17a4b229-c7f3-4c07-8cdc-81fa3b7ac303 │ 2022-10-03 12:15pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2016 │ 593a2eef-5c8e-4f64-a539-bf13d34b0d1c │ 2022-10-03 12:15pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2063 │                                      │ 2022-10-05 02:29pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2064 │ 6d885747-80c2-417d-b475-790fa3715954 │ 2022-10-05 02:29pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2065 │ a85dbf41-dede-4ee4-8235-d10c2e192997 │ 2022-10-05 02:30pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2066 │ b00de484-b524-43f1-b76f-c9e98a9c96ad │ 2022-10-05 02:30pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2067 │ 3f128cf7-9611-4988-94e8-60768add109e │ 2022-10-05 02:30pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2068 │ 3464209e-1220-43ec-953e-38fd7ab3380e │ 2022-10-05 02:30pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2069 │ 52b2c0c3-f526-48b7-8ad2-4a666be06576 │ 2022-10-05 02:30pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2070 │ da437bbc-1c16-4b0b-abac-63b3d728d0f4 │ 2022-10-05 02:35pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2071 │ dc1aa03f-8556-47f3-acd9-c674ddc699a7 │ 2022-10-05 02:35pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2072 │ f827b750-8241-4f7a-9670-3a5b1abf01ef │ 2022-10-05 02:35pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2073 │ 159a6c08-9368-4bda-a7d7-ec1fb033418d │ 2022-10-05 02:35pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2074 │ 332f295f-da64-4e2c-8461-050bf53d1e5e │ 2022-10-05 02:35pm │ Pagada    │
+├────────────┼──────────────────────────────────────┼────────────────────┼───────────┤
+│       2098 │ 567732bc-1722-41cd-ba3c-3e15a13055fc │ 2022-10-07 10:05am │ Pagada    │
+╘════════════╧══════════════════════════════════════╧════════════════════╧═══════════╛
+-------------------------------------------
+<br/></div></td></tr></tbody></table></body></html>

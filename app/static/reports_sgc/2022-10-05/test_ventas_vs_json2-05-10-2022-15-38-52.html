@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>10-05-2022-15-44-03</h1>
+    <p>Report generated on 05-Oct-2022 at 15:44:03 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 309.60 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_ventas_vs_json2.py::test_ventas_vs_json</td>
+          <td class="col-duration">309.55</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>-------------------------------------------
+-------------------------------------------
+Datos y diferencias: 
+
+Datos en SGC Ventas:
+Fecha de inicio de informe :  2022-10-04 07:00 
+Fecha de final de informe :  2022-10-05 07:00
+Cantidad de servicios :  17
+Servicios Facturados :  5
+Servicios Terminados :  12
+Total Lt en SGC ventas :  3735.0398000000005
+-------------------------------------------
+-------------------------------------------
+Datos en JSON:
+Total entregado JSON :  3735.037
+Entregas en nodo entregas en JSON :  17
+Documentos en nodo entregas en JSON :  17
+Conteo Entregas en JSON :  17
+Conteo Facturados en JSON :  5
+Total Documentos JSON :  4
+-------------------------------------------
+-------------------------------------------
+Diferencias:
+Diferencia en entregas vs nodo Total entregas JSON :  0
+Diferencia en Documentos vs nodo Total Documentos JSON :  12
+Diferencia de LT :  0.0028000000006613845
+Diferencia de servicios :  0
+Diferencia facturas :  1
+-------------------------------------------
+-------------------------------------------
+Facturados sin complementos: 
+
+╒════════════╤══════════════════════════════════════╤════════════════════╕
+│   Servicio │ CFDI                                 │ FECHA              │
+╞════════════╪══════════════════════════════════════╪════════════════════╡
+│       2053 │ 5a622c73-5f56-490f-ba80-92ff2c481a53 │ 2022-10-04 01:59pm │
+╘════════════╧══════════════════════════════════════╧════════════════════╛
+-------------------------------------------
+-------------------------------------------
+Datos de ventas: 
+
+╒════════════════╤════════════════════╤═════════════════════╤═══════════╤══════════════════════════════════════╤═════════════╤══════════════════╕
+│   Num.registro │ Fecha              │   Volumen entregado │ Estado    │ CFDI                                 │ Tipo CFDI   │ Valor numerico   │
+╞════════════════╪════════════════════╪═════════════════════╪═══════════╪══════════════════════════════════════╪═════════════╪══════════════════╡
+│           2042 │ 2022-10-04 11:53am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2043 │ 2022-10-04 11:54am │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2044 │ 2022-10-04 12:14pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2045 │ 2022-10-04 12:19pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2046 │ 2022-10-04 12:17pm │            500      │ Facturado │ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ Ingreso     │ 500.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2047 │ 2022-10-04 12:26pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2048 │ 2022-10-04 12:33pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2049 │ 2022-10-04 12:43pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2050 │ 2022-10-04 12:45pm │            653.5    │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2051 │ 2022-10-04 12:53pm │             57.6923 │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2052 │ 2022-10-04 01:48pm │            500      │ Facturado │ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ Ingreso     │ 500.0000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2053 │ 2022-10-04 01:59pm │             57.6923 │ Facturado │ 5a622c73-5f56-490f-ba80-92ff2c481a53 │ Ingreso     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2054 │ 2022-10-04 02:14pm │             57.6923 │ Facturado │ bb3b748c-6686-4aba-9442-33cc412dc9a7 │ Ingreso     │ 57.6923          │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2055 │ 2022-10-04 04:05pm │            620.6    │ Facturado │ 6c5c8cf7-6981-49b4-a670-750dc98f1547 │ Ingreso     │ 620.6000         │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2056 │ 2022-10-04 05:16pm │            354      │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2057 │ 2022-10-04 05:32pm │            410      │ Terminado │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼────────────────────┼─────────────────────┼───────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2058 │ 2022-10-04 05:34pm │            120.017  │ Terminado │ N/A                                  │ N/A         │ N/A              │
+╘════════════════╧════════════════════╧═════════════════════╧═══════════╧══════════════════════════════════════╧═════════════╧══════════════════╛
+-------------------------------------------
+-------------------------------------------
+Datos de JSON: 
+
+╒════════════════╤═════════════════════╤═════════════════════╤══════════════════════════════════════╤═════════════╤══════════════════╕
+│   Num.registro │ Fecha               │   Volumen entregado │ CFDI                                 │ Tipo CFDI   │ Valor numerico   │
+╞════════════════╪═════════════════════╪═════════════════════╪══════════════════════════════════════╪═════════════╪══════════════════╡
+│           2042 │ 2022-10-04 11:53:28 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2043 │ 2022-10-04 11:54:38 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2044 │ 2022-10-04 12:14:21 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2046 │ 2022-10-04 12:17:51 │             500     │ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ ingreso     │ 500              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2045 │ 2022-10-04 12:19:23 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2047 │ 2022-10-04 12:26:37 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2048 │ 2022-10-04 12:33:47 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2049 │ 2022-10-04 12:43:03 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2050 │ 2022-10-04 12:45:43 │             653.5   │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2051 │ 2022-10-04 12:53:50 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2052 │ 2022-10-04 13:48:19 │             500     │ 2628e642-7214-4ba9-9eb2-4b6acbb319bc │ ingreso     │ 500              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2053 │ 2022-10-04 13:59:51 │              57.692 │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2054 │ 2022-10-04 14:14:22 │              57.692 │ bb3b748c-6686-4aba-9442-33cc412dc9a7 │ ingreso     │ 57.692           │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2055 │ 2022-10-04 16:05:13 │             620.6   │ 6c5c8cf7-6981-49b4-a670-750dc98f1547 │ ingreso     │ 620.6            │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2056 │ 2022-10-04 17:16:17 │             354     │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2057 │ 2022-10-04 17:32:33 │             410     │ N/A                                  │ N/A         │ N/A              │
+├────────────────┼─────────────────────┼─────────────────────┼──────────────────────────────────────┼─────────────┼──────────────────┤
+│           2058 │ 2022-10-04 17:34:27 │             120.017 │ N/A                                  │ N/A         │ N/A              │
+╘════════════════╧═════════════════════╧═════════════════════╧══════════════════════════════════════╧═════════════╧══════════════════╛
+-------------------------------------------
+<br/></div></td></tr></tbody></table></body></html>

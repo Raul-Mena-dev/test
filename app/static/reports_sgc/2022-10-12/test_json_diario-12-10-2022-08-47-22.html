@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>10-12-2022-08-49-48</h1>
+    <p>Report generated on 12-Oct-2022 at 08:49:48 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 145.45 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_json_diario.py::test_ventas_vs_json</td>
+          <td class="col-duration">145.26</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">driver = &lt;selenium.webdriver.chrome.webdriver.WebDriver (session=&quot;45bd5e96f5e0a0d328e7bab821592b6a&quot;)&gt;, name = &#x27;admin&#x27;, password = &#x27;Z76U4CFIx#&#x27;<br/>name_web = &#x27;admin&#x27;, password_web = &#x27;Ku8L08iEsb86&#x27;<br/><br/>    def test_ventas_vs_json(driver, name=&#x27;admin&#x27;, password=&#x27;Z76U4CFIx#&#x27;, name_web=&#x27;admin&#x27;, password_web=&#x27;Ku8L08iEsb86&#x27;):<br/>        datos_inventario = {}<br/>        datos_inventario_ventas = {}<br/>        datos_descarga = []<br/>        datos_ventas = {}<br/>        recepciones = {}<br/>        ventas = []<br/>        facturados_sin_complemento = []<br/>        ventas_que_no_aparecen = []<br/>        lista_aux = []<br/>        lista_aux2 = []<br/>        lista_aux3 = []<br/>        lista_aux4 = []<br/>        fecha_inicio = &#x27;&#x27;<br/>        fecha_final = &#x27;&#x27;<br/>        try:<br/>            login(driver, name, password)<br/>            time.sleep(2)<br/>            # sacar fechas del inventario<br/>            boton_inventario = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_7&quot;]&#x27;)<br/>            boton_inventario.click()<br/>            hora = datetime.datetime.now()<br/>            dia_inventario = datetime.date.today()<br/>            dia_inventario = dia_inventario - datetime.timedelta(days=1)<br/>            datos_inventario[&#x27;Dia inventario&#x27;] = dia_inventario<br/>            dia_inventario = dia_inventario.strftime(&quot;%Y-%m-%d&quot;)<br/>            fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;inventario_basic&quot;]&#x27;)<br/>            fecha.send_keys(dia_inventario)<br/>            fecha.send_keys(Keys.ENTER)<br/>            time.sleep(1)<br/>            # fecha inicial del inventario<br/>            if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;):<br/>                documento = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;)<br/>                documento.click()<br/>                time.sleep(1)<br/>                fecha_inicio = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[2]/tbody/tr[1]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Fecha inicial inventario&#x27;] = fecha_inicio<br/>                fecha_inicio = convertir_fecha_24(fecha_inicio)<br/>                # fecha final del inventario<br/>                fecha_final = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;tr1&quot;]/td[2]&#x27;).text<br/>                datos_inventario[&#x27;Fecha Final del Inventario&#x27;] = fecha_final<br/>                fecha_final = convertir_fecha_24(fecha_final)<br/>                dia1 = datetime.datetime.strptime(fecha_inicio, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                dia1 = dia1.weekday()<br/>                dia2 = datetime.datetime.strptime(fecha_final, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                dia2 = dia2.weekday()<br/>                entradas = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/div[1]/table[3]/tbody[1]/tr[3]/td[2]&#x27;).text<br/>                entradas = entradas.replace(&#x27; &#x27;, &#x27;&#x27;, 10)<br/>                entradas = entradas.split(&#x27;]&#x27;)<br/>                entradas_kg = entradas[1]<br/>                entradas_kg = entradas_kg.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                entradas_kg = entradas_kg.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                entradas_kg = entradas_kg.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                datos_inventario[&#x27;Entradas LT&#x27;] = entradas_kg<br/>                cantidad_de_entradas = entradas[0]<br/>                cantidad_de_entradas = cantidad_de_entradas.replace(&#x27;[&#x27;, &#x27;&#x27;)<br/>                cantidad_de_entradas = cantidad_de_entradas.replace(&#x27;]&#x27;, &#x27;&#x27;)<br/>                datos_inventario[&#x27;Cantidad de entradas&#x27;] = cantidad_de_entradas<br/>                total_ventas = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[4]/tbody/tr[6]/td[2]&#x27;).text<br/>                total_ventas = total_ventas.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                total_ventas = total_ventas.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                total_ventas = total_ventas.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                datos_inventario[&#x27;Ventas Total Inventario&#x27;] = total_ventas<br/>                # revisar si el inventario es domingo<br/>                if (dia1 == 5 and dia2 == 6) or (dia1 == 6 and dia2 == 0 and hora.hour &gt; 13):<br/>                    boton_inventario = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_7&quot;]&#x27;)<br/>                    boton_inventario.click()<br/>                    hora = datetime.datetime.now()<br/>                    if hora.hour &gt;= 13:<br/>                        dia_inventario = datetime.date.today()<br/>                        dia_inventario = dia_inventario - datetime.timedelta(days=3)<br/>                    else:<br/>                        dia_inventario = datetime.date.today()<br/>                        dia_inventario = dia_inventario - datetime.timedelta(days=4)<br/>                    datos_inventario[&#x27;Dia inventario&#x27;] = dia_inventario<br/>                    dia_inventario = dia_inventario.strftime(&quot;%Y-%m-%d&quot;)<br/>                    fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;inventario_basic&quot;]&#x27;)<br/>                    fecha.send_keys(dia_inventario)<br/>                    fecha.send_keys(Keys.ENTER)<br/>                    time.sleep(1)<br/>                    # fecha inicial del inventario<br/>                    if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;):<br/>                        documento = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;)<br/>                        documento.click()<br/>                        time.sleep(1)<br/>                        fecha_inicio = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[2]/tbody/tr[1]/td[2]&#x27;).text<br/>                        datos_inventario[&#x27;Fecha inicial inventario&#x27;] = fecha_inicio<br/>                        fecha_inicio = convertir_fecha_24(fecha_inicio)<br/>                        # fecha final del inventario<br/>                        fecha_final = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;tr1&quot;]/td[2]&#x27;).text<br/>                        datos_inventario[&#x27;Fecha Final del Inventario&#x27;] = fecha_final<br/>                        fecha_final = convertir_fecha_24(fecha_final)<br/>                        entradas = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/div[1]/table[3]/tbody[1]/tr[3]/td[2]&#x27;).text<br/>                        entradas = entradas.replace(&#x27; &#x27;, &#x27;&#x27;, 10)<br/>                        entradas = entradas.split(&#x27;]&#x27;)<br/>                        entradas_kg = entradas[1]<br/>                        entradas_kg = entradas_kg.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                        entradas_kg = entradas_kg.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                        entradas_kg = entradas_kg.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                        datos_inventario[&#x27;Entradas LT&#x27;] = entradas_kg<br/>                        cantidad_de_entradas = entradas[0]<br/>                        cantidad_de_entradas = cantidad_de_entradas.replace(&#x27;[&#x27;, &#x27;&#x27;)<br/>                        cantidad_de_entradas = cantidad_de_entradas.replace(&#x27;]&#x27;, &#x27;&#x27;)<br/>                        datos_inventario[&#x27;Cantidad de entradas&#x27;] = cantidad_de_entradas<br/>                        total_ventas = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[4]/tbody/tr[6]/td[2]&#x27;).text<br/>                        total_ventas = total_ventas.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                        total_ventas = total_ventas.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                        total_ventas = total_ventas.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                        datos_inventario_ventas[&#x27;Ventas Total Inventario&#x27;] = total_ventas<br/>            if int(datos_inventario[&#x27;Cantidad de entradas&#x27;]) &gt; 0:<br/>                boton_descarga = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[3]/div[10]/ul[1]/li[6]/span[2]/a[1]&#x27;)<br/>                boton_descarga.click()<br/>                sub_boton_descarga = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[3]/div[12]/span[5]/ul[1]/li[1]/a[1]&#x27;)<br/>                sub_boton_descarga.click()<br/>                boton_descargas_documento = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[2]/div[1]/ul[1]/li[2]/a[1]&#x27;)<br/>                boton_descargas_documento.click()<br/>                fecha1 = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/form[1]/div[1]/table[1]/tbody[1]/tr[1]/td[2]/input[1]&#x27;)<br/>                fecha2 = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/form[1]/div[1]/table[1]/tbody[1]/tr[1]/td[2]/input[2]&#x27;)<br/>                time.sleep(2)<br/>                fecha1.clear()<br/>                fecha2.clear()<br/>                fecha1.send_keys(fecha_inicio)<br/>                fecha2.send_keys(fecha_final)<br/>                fecha2.send_keys(Keys.ENTER)<br/>                time.sleep(1)<br/>                unidades_de_medida = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/form[1]/div[1]/table[1]/tbody[1]/tr[6]/td[2]/input[1]&#x27;)<br/>                unidades_de_medida.click()<br/>                time.sleep(3)<br/>                tabla_descargas = driver.find_element(By.XPATH ,&#x27;//*[@id=&quot;content&quot;]/table/tbody/tr/td/table[4]/tbody&#x27;)<br/>                tabla_descargas_len = len(tabla_descargas.find_elements(By.TAG_NAME, &#x27;tr&#x27;))<br/>                # tabla_descargas_len -= 1<br/>                i = 2<br/>                x = 0<br/>                if check_exists_by_xpath(driver, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/table[4]/tbody[1]/tr[3]/td[2]&#x27;):<br/>                    total = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/table[4]/tbody[1]/tr[3]/td[2]&#x27;).text<br/>                    datos_inventario[&#x27;Total de cargas&#x27;] = total<br/>                    datos_inventario[&#x27;Volumen Compensado&#x27;] = &#x27;0&#x27;<br/>                    while i &lt; tabla_descargas_len:<br/>                        datos_descarga.append([])<br/>                        compensado = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;content&quot;]/table/tbody/tr/td/table[4]/tbody/tr[{i}]/td[13]&#x27;).text<br/>                        compensado = compensado.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                        compensado = compensado.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                        compensado = compensado.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                        compensado = compensado.replace(&#x27; &#x27;, &#x27;&#x27;, 10)<br/>                        datos_inventario[&#x27;Volumen Compensado&#x27;] = str(float(datos_inventario[&#x27;Volumen Compensado&#x27;]) + float(compensado))<br/>                        folio_link = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;content&quot;]/table/tbody/tr/td/table[4]/tbody/tr[{i}]/td[1]/a&#x27;)<br/>                        datos_descarga[x].append(folio_link.text)<br/>                        folio_link.click()<br/>                        time.sleep(3)<br/>                        folio_fiscal = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_2&quot;]/tbody/tr[3]/td[2]&#x27;).text<br/>                        datos_descarga[x].append(folio_fiscal)<br/>                        estado = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_1&quot;]/tbody/tr[4]/td[2]&#x27;).text<br/>                        datos_descarga[x].append(estado)<br/>                        volumen_compensado = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_4&quot;]/tbody/tr[7]/td[4]&#x27;).text<br/>                        datos_descarga[x].append(volumen_compensado)<br/>                        fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_1&quot;]/tbody/tr[1]/td[4]&#x27;).text<br/>                        datos_descarga[x].append(fecha)<br/>                        x += 1<br/>                        i += 1<br/>                        boton_descarga = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[3]/div[10]/ul[1]/li[6]/span[2]/a[1]&#x27;)<br/>                        boton_descarga.click()<br/>                        sub_boton_descarga = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[3]/div[12]/span[5]/ul[1]/li[1]/a[1]&#x27;)<br/>                        sub_boton_descarga.click()<br/>                        boton_descargas_documento = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[2]/div[1]/ul[1]/li[2]/a[1]&#x27;)<br/>                        boton_descargas_documento.click()<br/>                        fecha1 = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/form[1]/div[1]/table[1]/tbody[1]/tr[1]/td[2]/input[1]&#x27;)<br/>                        fecha2 = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/form[1]/div[1]/table[1]/tbody[1]/tr[1]/td[2]/input[2]&#x27;)<br/>                        time.sleep(2)<br/>                        fecha1.clear()<br/>                        fecha2.clear()<br/>                        fecha1.send_keys(fecha_inicio)<br/>                        fecha2.send_keys(fecha_final)<br/>                        fecha2.send_keys(Keys.ENTER)<br/>                        time.sleep(1)<br/>                        unidades_de_medida = driver.find_element(By.XPATH, &#x27;/html[1]/body[1]/div[4]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/form[1]/div[1]/table[1]/tbody[1]/tr[6]/td[2]/input[1]&#x27;)<br/>                        unidades_de_medida.click()<br/>                        time.sleep(3)<br/>                else:<br/>                    datos_inventario[&#x27;Total de cargas&#x27;] = &#x27;0&#x27;<br/>                    datos_inventario[&#x27;Volumen Compensado&#x27;] = &#x27;0&#x27;<br/>            # sacamos el JSON<br/>            controles_volumetricos = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_8&quot;]&#x27;)<br/>            controles_volumetricos.click()<br/>            generar_reportes = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;ul_shortcuts&quot;]/li[6]/a&#x27;)<br/>            generar_reportes.click()<br/>            seleccion = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;json&quot;]&#x27;))<br/>            seleccion.select_by_value(&#x27;Diario&#x27;)<br/>            seleccion_fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;dia&quot;]&#x27;)<br/>            seleccion_fecha.send_keys(dia_inventario)<br/>            generar = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;Generar&quot;]/input&#x27;)<br/>            generar.click()<br/>            json_vntad = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;mnsj_generado&quot;]/a[1]&#x27;)<br/>            json_d = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;mnsj_generado&quot;]/a[2]&#x27;)<br/>            nombre_json_vntad = json_vntad.text<br/>            nombre_json_d = json_d.text<br/>            json_vntad.click()<br/>            json_d.click()<br/>            time.sleep(8)<br/>            with ZipFile(f&#x27;/home/rmenapc/Descargas/{nombre_json_vntad}&#x27;, &#x27;r&#x27;) as z:<br/>                z.extractall(&#x27;/home/rmenapc/Descargas/&#x27;)<br/>            os.remove(f&#x27;/home/rmenapc/Descargas/{nombre_json_vntad}&#x27;)<br/>            with ZipFile(f&#x27;/home/rmenapc/Descargas/{nombre_json_d}&#x27;, &#x27;r&#x27;) as z:<br/>                z.extractall(&#x27;/home/rmenapc/Descargas/&#x27;)<br/>            os.remove(f&#x27;/home/rmenapc/Descargas/{nombre_json_d}&#x27;)<br/>            # nos logeamos en sgc ventas<br/>            login_web(driver, name_web, password_web)<br/>            time.sleep(1)<br/>            principal = driver.current_window_handle<br/>            # nos movemos a la pestaña necesaria<br/>            driver.execute_script(&#x27;&#x27;&#x27;window.open(&quot;https://testventas.sgcweb.com.mx/index.php?module=isies_reportes_generales&amp;action=DetailView&amp;record=2ef1e97a-0954-03df-6c18-4e933561657a&quot;,&quot;_blank&quot;);&#x27;&#x27;&#x27;)<br/>            chld = driver.window_handles[1]<br/>            driver.switch_to.window(chld)<br/>            time.sleep(3)<br/>            version = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;footer&quot;]&#x27;).text<br/>            version = version.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>            version = version.split(&#x27;|&#x27;)<br/>            version = version[1]<br/>            version = version.replace(&#x27;v&#x27;, &#x27;&#x27;)<br/>            version = version.replace(&#x27;.&#x27;, &#x27;&#x27;)<br/>            # se mandan las fechas necesarias<br/>            time.sleep(3)<br/>            fecha1 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_fecha_0&quot;]&#x27;)<br/>            hora1 = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_hora_0&quot;]&#x27;))<br/>            fecha1.clear()<br/>            solo_fecha = fecha_inicio.split(&#x27; &#x27;)<br/>            solo_hora = solo_fecha[1]<br/>            solo_hora = solo_hora.split(&#x27;:&#x27;)<br/>            hora = solo_hora[0]<br/>            minuto = solo_hora[1]<br/>            solo_fecha = solo_fecha[0]<br/>            fecha1.send_keys(solo_fecha)<br/>            time.sleep(1)<br/>            hora1.select_by_visible_text(hora)<br/>            fecha2 = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_fecha2_0&quot;]&#x27;)<br/>            hora2 = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_hora2_0&quot;]&#x27;))<br/>            min2 = Select(driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_minuto2_0&quot;]&#x27;))<br/>            fecha2.clear()<br/>            fecha2.send_keys(fecha_final)<br/>            time.sleep(1)<br/>            hora2.select_by_visible_text(hora)<br/>            min2.select_by_visible_text(minuto)<br/>            datos_ventas[&#x27;Fecha de inicio de informe&#x27;] = fecha_inicio<br/>            datos_ventas[&#x27;Fecha de final de informe&#x27;] = fecha_final<br/>            ver_reporte = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;btn_ver_reporte&quot;]&#x27;)<br/>            ver_reporte.click()<br/>            time.sleep(15)<br/>            # se saca la cantidad de servicios que existen en el rango de fechas y horas correspondientes<br/>            lista_servicios = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;_preViewReport&quot;]/table/tbody&#x27;)<br/>            lista_servicios_len = len(lista_servicios.find_elements(By.TAG_NAME, &#x27;tr&#x27;))<br/>            datos_ventas[&#x27;Cantidad de servicios&#x27;] = lista_servicios_len - 2<br/>            i = 2<br/>            facturados = 0<br/>            # creamos los objetos necesarios por cada venta con la mitad de informacion (folio, fecha, estado, cantidad de lt)<br/>            while i &lt; lista_servicios_len:<br/>                folio = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;_preViewReport&quot;]/table/tbody/tr[{i}]/td[1]&#x27;).text<br/>                fecha = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;_preViewReport&quot;]/table/tbody/tr[{i}]/td[3]&#x27;).text<br/>                estado = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;_preViewReport&quot;]/table/tbody/tr[{i}]/td[10]&#x27;).text<br/>                cantidad_lt = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;_preViewReport&quot;]/table/tbody/tr[{i}]/td[4]&#x27;).text<br/>                venta = Venta()<br/>                venta.numero_de_registro = folio<br/>                venta.fecha = fecha<br/>                venta.estado = estado<br/>                if estado == &#x27;Facturado&#x27;:<br/>                    facturados += 1<br/>                venta.volumen_entregado = cantidad_lt<br/>                venta.valor_numerico = cantidad_lt<br/>                i += 1<br/>                ventas.append(venta)<br/>    <br/>            ventas.sort(key=lambda numero: numero.numero_de_registro)<br/>            datos_ventas[&#x27;Servicios Facturados&#x27;] = 0<br/>            for dato in ventas:<br/>                if dato.estado == &#x27;Facturado&#x27;:<br/>                    datos_ventas[&#x27;Servicios Facturados&#x27;] = int(datos_ventas[&#x27;Servicios Facturados&#x27;]) + 1<br/>            datos_ventas[&#x27;Servicios Terminados&#x27;] = 0<br/>            # nos movemos a servicios para buscar cada servicio y ver si tiene factura si tiene sacara los datos necesarios<br/>            for dato in ventas:<br/>                time.sleep(1)<br/>                if dato.estado == &#x27;Facturado&#x27;:<br/>                    servicios = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_3&quot;]&#x27;)<br/>                    servicios.click()<br/>                    folio_interno = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;folio_interno_basic&quot;]&#x27;)<br/>                    folio_interno.send_keys(dato.numero_de_registro)<br/>                    folio_interno.send_keys(Keys.ENTER)<br/>                    time.sleep(1)<br/>                    acceder = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[2]/a&#x27;)<br/>                    acceder.click()<br/>                    if check_exists_by_xpath(driver, &#x27;/html/body/div[4]/div[3]/table/tbody/tr/td/div[4]/table/tbody/tr[4]/td[4]/a&#x27;):<br/>                        factura = driver.find_element(By.XPATH, &#x27;/html/body/div[4]/div[3]/table/tbody/tr/td/div[4]/table/tbody/tr[4]/td[4]/a&#x27;)<br/>                        factura.click()<br/>                        time.sleep(1)<br/>                    elif check_exists_by_xpath(driver, &#x27;/html/body/div[4]/div[3]/table/tbody/tr/td/div[4]/table/tbody/tr[5]/td[4]/a&#x27;):<br/>                        comprobacion = driver.find_element(By.XPATH, &#x27;/html/body/div[4]/div[3]/table/tbody/tr/td/div[4]/table/tbody/tr[5]/td[4]/a&#x27;).text<br/>                        if comprobacion.isnumeric():<br/>                            factura = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_3&quot;]/tbody/tr[5]/td[4]/a&#x27;)<br/>                            factura.click()<br/>                            time.sleep(1)<br/>                        else:<br/>                            factura = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_3&quot;]/tbody/tr[3]/td[4]/a&#x27;)<br/>                            factura.click()<br/>                            time.sleep(1)<br/>                    if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;timbre_uuid&quot;]&#x27;):<br/>                        uuid = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;timbre_uuid&quot;]&#x27;).text<br/>                        tipo = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_1&quot;]/tbody/tr[7]/td[4]&#x27;).text<br/>                        estatus = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;detailpanel_1&quot;]/tbody/tr[7]/td[2]&#x27;).text<br/>                        dato.cfdi = uuid<br/>                        dato.tipo_cfdi = tipo<br/>                        dato.estatus = estatus<br/>                    else:<br/>                        dato.cfdi = &#x27;N/A&#x27;<br/>                        dato.tipo_cfdi = &#x27;N/A&#x27;<br/>                        dato.valor_numerico = &#x27;N/A&#x27;<br/>                else:<br/>                    datos_ventas[&#x27;Servicios Terminados&#x27;] = datos_ventas[&#x27;Servicios Terminados&#x27;] + 1<br/>                    dato.cfdi = &#x27;N/A&#x27;<br/>                    dato.tipo_cfdi = &#x27;N/A&#x27;<br/>                    dato.estatus = &#x27;N/A&#x27;<br/>                    dato.valor_numerico = &#x27;N/A&#x27;<br/>            # sacamos los datos del json, de momento no hace la descarga automatica,hay que hacerla manual e indicar el path<br/>            nombre_json_vntad = nombre_json_vntad.replace(&#x27;.zip&#x27;, &#x27;.json&#x27;)<br/>            nombre_json_d = nombre_json_d.replace(&#x27;.zip&#x27;, &#x27;.json&#x27;)<br/>            with open(f&#x27;/home/rmenapc/Descargas/{nombre_json_vntad}&#x27;, &#x27;r&#x27;) as json_file:<br/>                json_load = json.load(json_file)<br/>    <br/>            datos_json = []<br/>            num_entregas = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalEntregas&#x27;]<br/>            if int(num_entregas) &gt; 0:<br/>                data = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;Entrega&#x27;]<br/>    <br/>                aux = 0<br/>                datos_ventas[&#x27;Total Lt en SGC ventas&#x27;] = 0<br/>                for venta in ventas:<br/>                    datos_ventas[&#x27;Total Lt en SGC ventas&#x27;] = float(venta.volumen_entregado) + float(datos_ventas[&#x27;Total Lt en SGC ventas&#x27;])<br/>    <br/>                datos_ventas[&#x27;Total Lt en SGC ventas&#x27;] = round(datos_ventas[&#x27;Total Lt en SGC ventas&#x27;], 4)<br/>                data_len = len(data)<br/>                datos_ventas[&#x27;Total entregado JSON&#x27;] = 0<br/>                fecha1 = fecha_inicio<br/>                fecha2 = fecha_final<br/>                fecha1 = datetime.datetime.strptime(fecha1, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                fecha2 = datetime.datetime.strptime(fecha2, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                for dato in data:<br/>                    fecha = str(dato[&#x27;FechaYHoraFinalEntrega&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                    fecha = fecha.split(&#x27; &#x27;)<br/>                    sfecha = fecha[0]<br/>                    shora = fecha[1]<br/>                    shora = shora.split(&#x27;-&#x27;)<br/>                    fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                    fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                    fecha = fecha - datetime.timedelta(hours=5)<br/>                    if fecha1 &lt;= fecha &lt;= fecha2:<br/>                        v = Venta()<br/>                        v.numero_de_registro = str(dato[&#x27;NumeroDeRegistro&#x27;])<br/>                        datos_ventas[&#x27;Total entregado JSON&#x27;] = float(datos_ventas[&#x27;Total entregado JSON&#x27;]) + float(dato[&#x27;VolumenEntregado&#x27;])<br/>                        v.volumen_entregado = str(dato[&#x27;VolumenEntregado&#x27;])<br/>                        fecha = str(dato[&#x27;FechaYHoraFinalEntrega&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                        fecha = fecha.split(&#x27; &#x27;)<br/>                        sfecha = fecha[0]<br/>                        shora = fecha[1]<br/>                        shora = shora.split(&#x27;-&#x27;)<br/>                        fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                        fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                        fecha = fecha - datetime.timedelta(hours=5)<br/>                        v.fecha = fecha<br/>                        if &#x27;Complemento&#x27; in dato:<br/>                            v.cfdi = dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;Cfdi&#x27;]<br/>                            v.tipo_cfdi = dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;TipoCfdi&#x27;]<br/>                            v.valor_numerico = str(dato[&#x27;Complemento&#x27;][&#x27;Nacional&#x27;][0][&#x27;CFDIs&#x27;][&#x27;VolumenDocumentado&#x27;][&#x27;ValorNumerico&#x27;])<br/>                            aux += 1<br/>                        else:<br/>                            v.cfdi = &#x27;N/A&#x27;<br/>                            v.tipo_cfdi = &#x27;N/A&#x27;<br/>                            v.valor_numerico = &#x27;N/A&#x27;<br/>                        datos_json.append(v)<br/>                aux2 = 0<br/>                for venta in ventas:<br/>                    for dato in datos_json:<br/>                        if int(venta.numero_de_registro) == int(dato.numero_de_registro):<br/>                            if venta.estado == &#x27;Facturado&#x27; and dato.cfdi == &#x27;N/A&#x27;:<br/>                                facturados_sin_complemento.append([])<br/>                                facturados_sin_complemento[aux2].append(venta.numero_de_registro)<br/>                                facturados_sin_complemento[aux2].append(venta.cfdi)<br/>                                facturados_sin_complemento[aux2].append(venta.fecha)<br/>                                facturados_sin_complemento[aux2].append(venta.estatus)<br/>                                aux2 += 1<br/>                aux4 = 0<br/>                for venta in ventas:<br/>                    if not any(obj.numero_de_registro == venta.numero_de_registro for obj in datos_json):<br/>                        ventas_que_no_aparecen.append([])<br/>                        ventas_que_no_aparecen[aux4].append(venta.numero_de_registro)<br/>                        ventas_que_no_aparecen[aux4].append(venta.cfdi)<br/>                        ventas_que_no_aparecen[aux4].append(venta.fecha)<br/>                        ventas_que_no_aparecen[aux4].append(venta.estatus)<br/>                        aux4 += 1<br/>    <br/>    <br/>    <br/>                json_entregas = int(json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalEntregas&#x27;])<br/>                json_documentos = int(json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalDocumentos&#x27;])<br/>                datos_ventas[&#x27;Entregas en nodo entregas en JSON&#x27;] = json_entregas<br/>                datos_ventas[&#x27;Documentos en nodo entregas en JSON&#x27;] = json_documentos<br/>                datos_ventas[&#x27;Conteo Entregas en JSON&#x27;] = data_len<br/>                datos_ventas[&#x27;Conteo Facturados en JSON&#x27;] = facturados<br/>                datos_ventas[&#x27;Total Documentos JSON&#x27;] = aux<br/>                datos_ventas[&#x27;Diferencia en entregas vs nodo Total entregas JSON&#x27;] = int(datos_ventas[&#x27;Entregas en nodo entregas en JSON&#x27;]) - int(datos_ventas[&#x27;Conteo Entregas en JSON&#x27;])<br/>                datos_ventas[&#x27;Diferencia en Documentos vs nodo Total Documentos JSON&#x27;] = int(datos_ventas[&#x27;Documentos en nodo entregas en JSON&#x27;]) - int(datos_ventas[&#x27;Conteo Facturados en JSON&#x27;])<br/>                datos_ventas[&#x27;Diferencia de LT&#x27;] = float(datos_ventas[&#x27;Total Lt en SGC ventas&#x27;]) - float(datos_ventas[&#x27;Total entregado JSON&#x27;])<br/>                datos_ventas[&#x27;Diferencia de LT&#x27;] = round(datos_ventas[&#x27;Diferencia de LT&#x27;], 4)<br/>                datos_ventas[&#x27;Diferencia de servicios&#x27;] = int(datos_ventas[&#x27;Cantidad de servicios&#x27;]) - int(datos_ventas[&#x27;Conteo Entregas en JSON&#x27;])<br/>                datos_ventas[&#x27;Diferencia facturas&#x27;] = int(datos_ventas[&#x27;Servicios Facturados&#x27;]) - int(datos_ventas[&#x27;Total Documentos JSON&#x27;])<br/>    <br/>                datos_json.sort(key=lambda numero: numero.numero_de_registro)<br/>                i = 0<br/>                for venta in ventas:<br/>                    lista_aux.append([])<br/>                    lista_aux[i].append(venta.numero_de_registro)<br/>                    lista_aux[i].append(venta.fecha)<br/>                    lista_aux[i].append(venta.volumen_entregado)<br/>                    lista_aux[i].append(venta.estado)<br/>                    lista_aux[i].append(venta.cfdi)<br/>                    lista_aux[i].append(venta.tipo_cfdi)<br/>                    lista_aux[i].append(venta.estatus)<br/>                    lista_aux[i].append(venta.valor_numerico)<br/>                    i += 1<br/>    <br/>                i = 0<br/>                for venta in datos_json:<br/>                    lista_aux2.append([])<br/>                    lista_aux2[i].append(venta.numero_de_registro)<br/>                    lista_aux2[i].append(venta.fecha)<br/>                    lista_aux2[i].append(venta.volumen_entregado)<br/>                    lista_aux2[i].append(venta.cfdi)<br/>                    lista_aux2[i].append(venta.tipo_cfdi)<br/>                    lista_aux2[i].append(venta.valor_numerico)<br/>                    i += 1<br/>    <br/>            else:<br/>                json_entregas = int(json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalEntregas&#x27;])<br/>                json_documentos = int(json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Entregas&#x27;][&#x27;TotalDocumentos&#x27;])<br/>                datos_ventas[&#x27;Entregas en nodo entregas en JSON&#x27;] = json_entregas<br/>                datos_ventas[&#x27;Documentos en nodo entregas en JSON&#x27;] = json_documentos<br/>                # datos_json.append(f&#x27;Sin datos de ventas en el JSON de ventas, archivo: {nombre_json_vntad}&#x27;)<br/>    <br/>            recepciones[&#x27;Total Recepciones&#x27;] = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Recepciones&#x27;][&#x27;TotalRecepciones&#x27;]<br/>            recepciones_json = []<br/>            if int(recepciones[&#x27;Total Recepciones&#x27;]) &gt; 0:<br/>                data2 = json_load[&#x27;ControlesVolumetricos&#x27;][&#x27;Producto&#x27;][0][&#x27;Tanque&#x27;][0][&#x27;Recepciones&#x27;][&#x27;Recepcion&#x27;]<br/>                for dato in data2:<br/>                    r = Recepcion()<br/>                    r.numero_de_registro = dato[&#x27;NumeroDeRegistro&#x27;]<br/>                    fecha = str(dato[&#x27;FechaYHoraFinalRecepcion&#x27;]).replace(&#x27;T&#x27;, &#x27; &#x27;)<br/>                    fecha = fecha.split(&#x27; &#x27;)<br/>                    sfecha = fecha[0]<br/>                    shora = fecha[1]<br/>                    shora = shora.split(&#x27;-&#x27;)<br/>                    fecha = sfecha + &#x27; &#x27; + shora[0]<br/>                    fecha = datetime.datetime.strptime(fecha, &#x27;%Y-%m-%d %H:%M:%S&#x27;)<br/>                    fecha = fecha - datetime.timedelta(hours=5)<br/>                    r.fecha = fecha<br/>&gt;                   r.tipo_cfdi = dato[&#x27;Complemento&#x27;][&#x27;TipoComplemento&#x27;]<br/><span class="error">E                   KeyError: &#x27;Complemento&#x27;</span><br/><br/>app/static/pruebas_sgc/test_json_diario.py:555: KeyError<br/></div></td></tr></tbody></table></body></html>
