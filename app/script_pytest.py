@@ -20,4 +20,15 @@ def script_pytest2(prueba):
     
 
 
+def script_pytest3(prueba, fecha):
+    f = datetime.datetime.now()
+    f = f.strftime("%Y-%m-%d")
+    if os.path.isdir(f'/home/rmenapc/Escritorio/test_station/app/static/reports_sgc/{f}'):
+        report_name = prueba.replace('.py', '')
+        os.system(f'pytest /home/rmenapc/Escritorio/test_station/app/static/pruebas_sgc/{prueba}.py --fecha_test={fecha} --html=/home/rmenapc/Escritorio/test_station/app/static/reports_sgc/{f}/{report_name}-"`date +"%d-%m-%Y-%H-%M-%S"`".html')
+    else:
+        os.mkdir(f'/home/rmenapc/Escritorio/test_station/app/static/reports_sgc/{f}')
+        report_name = prueba.replace('.py', '')
+        os.system(f'pytest /home/rmenapc/Escritorio/test_station/app/static/pruebas_sgc/{prueba}.py --fecha_test={fecha} --html=/home/rmenapc/Escritorio/test_station/app/static/reports_sgc/{f}/{report_name}-"`date +"%d-%m-%Y-%H-%M-%S"`".html')
+    
 

@@ -25,10 +25,15 @@ def driver2(request):
     wd.quit()
 
 
-def pytest_html_report_title(report):
-    x = datetime.datetime.now()
-    x = x.strftime("%m-%d-%Y-%H-%M-%S")
-    report.title = x
+def pytest_addoption(parser):
+    fecha = datetime.date.today()
+    fecha = fecha - datetime.timedelta(days=1)
+    parser.addoption(
+        "--fecha_test", action="store", default=str(fecha),
+    )
 
 
+@pytest.fixture
+def fecha_test(request):
+    return request.config.getoption("--fecha_test")
 

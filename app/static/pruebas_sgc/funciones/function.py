@@ -30,6 +30,18 @@ def login_web(driver, username, password):
     password_field.submit()
 
 
+def login_carburacion(driver, username, password):
+    driver.get("http://192.168.9.163/sgcweb")
+    time.sleep(3)
+    user = driver.find_element(By.XPATH, '//*[@id="user_name"]')
+    user.clear()
+    user.send_keys(username)
+    password_field = driver.find_element(By.XPATH, '//*[@id="user_password"]')
+    password_field.clear()
+    password_field.send_keys(password)
+    password_field.submit()
+
+
 def logout(driver):
     try:
 
@@ -123,4 +135,28 @@ def convertir_fecha_24(fecha):
         fecha_final = fecha_nueva[0] + ' ' + hora_a_modificar
     return fecha_final
 
+
+def convertir_mes(fecha):
+    meses = {
+        'Enero': '01',
+        'Febrero': '02',
+        'Marzo': '03',
+        'Abril': '04',
+        'Mayo': '05',
+        'Junio': '06',
+        'Julio': '07',
+        'Agosto': '08',
+        'Septiembre': '09',
+        'Octubre': '10',
+        'Noviembre': '11',
+        'Diciembre': '12'
+    }
+    fecha = fecha.split('-')
+    dia = fecha[0]
+    mes = fecha[1]
+    anio = fecha[2]
+
+    numero_mes = str(meses[mes])
+    fecha_nueva = anio + '-' + numero_mes + '-' + dia
+    return fecha_nueva
 

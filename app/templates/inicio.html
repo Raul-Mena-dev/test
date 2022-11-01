@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {% block navbar %}
+            {% include 'navbar.html' %}
+    {% endblock %}
+
+    <div class="container text-center">
+        <h1><i class="fa-solid fa-bug me-2 mt-3"></i>TestStation</h1>
+        <h2><i class="fa-solid fa-book me-2 mt-4"></i>Guia de uso</h2>
+        <div class="row justify-content-start mt-4 p-3 bg-info bg-opacity-10 border border-info border-end-0 rounded-start">
+            <div class="col-4">
+                <p class="fs-2 fw-bold"><i class="fa-solid fa-file me-3"></i>Reportes</p>
+            </div>
+            <div class="col-4">
+                <div class="text-start">
+                    <p>Los reportes son visibles para todos</p>
+                    <p>Los reportes solo los pueden borrar los usuarios logueados(tester)</p>
+                    <p>Los reportes se guardan en la carpeta correspondiente a la fecha de ejecucion del test</p>
+                </div>
+            </div>
+            </div>
+        <div class="row justify-content-end mt-4 p-3 bg-info bg-opacity-10 border border-info border-start-0 rounded-end">
+        <div class="col-4">
+            <div class="text-start">
+                <p>Los test solo pueden ser ejecutados por usuarios logueados(tester)</p>
+                <p>Los test solo pueden subirse por usuarios logueados(tester)</p>
+                <p>Los test tienen la opcion de ser ejecutados con una fecha en especifico como parametro</p>
+                <P>Si no se selecciona fecha del test se ejecutara usando la fecha del dia anterior al presente</P>
+            </div>
+        </div>
+        <div class="col-4">
+            <p class="fs-2 fw-bold"><i class="fa-solid fa-vial-circle-check me-3"></i>Test</p>
+        </div>
+        </div>
+        <div class="row justify-content-start mt-4 p-3 bg-info bg-opacity-10 border border-info border-end-0 rounded-start">
+        <div class="col-4">
+            <p class="fs-2 fw-bold"><i class="fa-solid fa-upload me-3"></i>Subir archivo</p>
+        </div>
+        <div class="col-4">
+            <div class="text-start">
+                <p>Solo se pueden subir scripts de python</p>
+                <p>Importante seleccionar la carpeta donde se almacenara el script</p>
+                <p>En el apartado de descripcion, para crear saltos de linea poner un '-' (guion medio)</p>
+            </div>
+        </div>
+        </div>
+    </div>
+    <div class="mt-5">
+        {% include 'footer.html' %}
+    </div>
+    
+    {% endblock %}
+    

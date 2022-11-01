@@ -12,20 +12,21 @@
         {% for test in tests %}
         <li class="list-group-item list-group-item-action" > 
             <button class="btn btn-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample{{loop.index}}"  aria-expanded="false" aria-controls="collapseExample{{loop.index}}">
-                {{test}}
+              <i class="fa-solid fa-code me-2"></i>{{test['nombre_prueba']}}
               </button>
-            <div class="collapse" id="collapseExample{{loop.index}}">
+            <div class="collapse mt-2" id="collapseExample{{loop.index}}">
               <div class="card card-body mt-1">
-                {% for key, value in descripcion.items() %}
-                  {% if key == test %}
-                  {% set lista = value.split('-') %}
+                <p class="fw-bold">Autor: {{test['usuario']}} </p>
+                {% set lista = test['text'].split('-') %}
                   {% for x in lista %}
                   <p>{{x}}</p>
                   {% endfor %}
-                  {% endif %}
-                {% endfor %}
               </div>
-              <a class="btn btn-success mt-1" id="boton" onclick="desactivar();" href="http://127.0.0.1:5000/test_sgc/{{test}}">
+                <label for="fecha"><i class="fa-solid fa-calendar-days"></i> <strong>Fecha del Test: </strong> </label>
+                {% set prueba = test['nombre_prueba'] %}
+              <input type="date" name="fecha" id="fecha{{test['nombre_prueba']}}" class="me-2" onchange="getFecha('{{prueba}}')">
+              <a href="http://127.0.0.1:5000/test_sgc/{{test['nombre_prueba']}}" style="visibility: hidden" id="link{{test['nombre_prueba']}}"></a>
+              <a class="btn btn-success mt-1" id="boton{{test['nombre_prueba']}}" onclick="desactivar();" href="http://127.0.0.1:5000/test_sgc/{{test['nombre_prueba']}}">
                 <i class="fa-solid fa-gears me-1"></i>
                 
                 Correr test</a>
@@ -35,5 +36,8 @@
             </div></li>
         {% endfor %}
     </ul>
+</div>
+<div class="mt-5">
+  {% include 'footer.html' %}
 </div>
 {% endblock %}

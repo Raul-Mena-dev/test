@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>test_liquidacion-2022-10-28-16-12-18.html</h1>
+    <p>Report generated on 28-Oct-2022 at 16:13:14 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 54.63 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_liquidacion.py::test_liquidacion</td>
+          <td class="col-duration">54.59</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Test Liquidacion
+
+Test liquidacion, test para comprobar si los datos en carburacion cuadran en todos los reportes de liquidacion
+Instancias: 192.168.9.163/sgcweb
+
+
+-------------------------------------------
+-------------------------------------------
+Datos y diferencias: 
+
+-------------------------------------------
+Datos de carburacion:
+
+------------------Turnos-------------------
+
+-------------------------------------------
+Datos Turnos: 
+
+╒════════════╤════════════════════╤════════════════════╕
+│ Vendedor   │ Fecha Entrada      │ Fecha Salida       │
+╞════════════╪════════════════════╪════════════════════╡
+│ raul       │ 2022-10-27 11:16am │ 2022-10-27 05:35pm │
+├────────────┼────────────────────┼────────────────────┤
+│ gerardo    │ 2022-10-27 10:20am │ 2022-10-27 05:36pm │
+╘════════════╧════════════════════╧════════════════════╛
+-------------------------------------------
+-------------------------------------------
+Totales de reporte de ventas(Reporte 1):
+
+----------------Totales----------------
+
+Cantidad: 221.0683
+Subtotal: 3829.69
+IVA: 306.45
+IEPS: 0.0
+Importe Total: 4136.14
+-------------------------------------------
+Totales de reporte por cliente(Reporte 2):
+
+----------------Contado----------------
+
+Cantidad de LTs a contado: 152.8236
+Total a Contado: $2,859.30
+Subtotal a Contado: $2,647.46
+IVA a contado: $211.84
+IEPS contado: $0.00
+----------------Credito----------------
+
+Cantidad de LTs a Credito: 68.2447
+Total a Credito: 1276.84
+Subtotal a Credito: 1182.24
+IVA a credito: 94.60
+IEPS Credito: 0.00
+-------------------------------------------
+Totales de Corte(Reporte 3):
+
+----------------Totales----------------
+
+Volumen Corte: 221.0683
+Subtotal Corte: $3,829.70
+IVA Corte: $306.44
+IEPS Corte: $0.00
+Total Corte: $4,136.14
+----------------Credito----------------
+
+Volumen Corte Credito: 68.2447
+Subtotal Corte Credito: $1,182.24
+IVA Corte Credito: $94.60
+IEPS Corte Credito: $0.00
+Total Corte Credito: $1,276.84
+---------Credito por cliente-----------
+
+Credito por cliente: $1,276.84
+----------------Cierre-----------------
+
+Cierre de corte: $2,859.30
+-------------------------------------------
+Diferencias:
+
+Diferencia de Litros: 0.0
+----------------Totales----------------
+
+Diferencia de Subtotal entre Reporte de ventas y el corte: 0.01
+Diferencia de IVA entre Reporte de ventas y el corte: 0.01
+Diferencia de IEPS entre Reporte de ventas y el corte: 0.0
+Diferencia de Total entre Reporte de ventas y el corte: 0.0
+----------------Credito----------------
+
+Diferencia de Subtotal credito entre Reporte de ventas y el corte: 0.0
+Diferencia de IVA credito entre Reporte de ventas y el corte: 0.0
+Diferencia de IEPS credito entre Reporte de ventas y el corte: 0.0
+Diferencia de Total credito entre Reporte de ventas y el corte: 0.0
+-------------------------------------------
+-------------------------------------------
+Datos Liquidaciones: 
+
+╒════════════╤══════════════════╤══════════════════╤══════════════════╤═════════════════╤═════════════════╤═══════════════╤══════════╕
+│ Vendedor   │ Ventas Totales   │ Ventas contado   │ Ventas credito   │ Pagos contado   │ Pagos credito   │ Otros pagos   │ Saldo    │
+╞════════════╪══════════════════╪══════════════════╪══════════════════╪═════════════════╪═════════════════╪═══════════════╪══════════╡
+│ raul       │ $1,813.11        │ $1,713.11        │ $100.00          │ $0.00           │ $0.00           │ $0.00         │ $471.49  │
+├────────────┼──────────────────┼──────────────────┼──────────────────┼─────────────────┼─────────────────┼───────────────┼──────────┤
+│ gerardo    │ $2,323.03        │ $1,146.19        │ $1,176.84        │ $0.00           │ $0.00           │ $0.00         │ $570.65  │
+├────────────┼──────────────────┼──────────────────┼──────────────────┼─────────────────┼─────────────────┼───────────────┼──────────┤
+│ SUMA:      │ $4136.14         │ $2859.3          │ $1276.84         │ $0.0            │ $0.0            │ $0.0          │ $1042.14 │
+╘════════════╧══════════════════╧══════════════════╧══════════════════╧═════════════════╧═════════════════╧═══════════════╧══════════╛
+-------------------------------------------
+-------------------------------------------
+Datos Reporte detallado de ventas: 
+
+╒═════════╤════════════╤═══════════════════════════════════╤════════════╤════════════╤════════╤════════╤═════════════════╕
+│   Folio │ Vendedor   │ Cliente                           │   Cantidad │ Subtotal   │ IVA    │ IEPS   │ Importe Total   │
+╞═════════╪════════════╪═══════════════════════════════════╪════════════╪════════════╪════════╪════════╪═════════════════╡
+│ 1938876 │ raul       │ NORMA ANGELICA CASILLAS GUTIERREZ │     5.3447 │ $92.59     │ $7.41  │ $0.00  │ $100.00         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938875 │ raul       │ PUBLICO EN GENERAL                │    15      │ $259.86    │ $20.79 │ $0.00  │ $280.65         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938874 │ raul       │ PUBLICO EN GENERAL                │    13.3618 │ $231.48    │ $18.52 │ $0.00  │ $250.00         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938873 │ raul       │ PUBLICO EN GENERAL                │    31.9    │ $552.62    │ $44.22 │ $0.00  │ $596.84         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938872 │ raul       │ PUBLICO EN GENERAL                │    16.2    │ $280.64    │ $22.46 │ $0.00  │ $303.10         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938871 │ raul       │ PUBLICO EN GENERAL                │    15.1    │ $261.59    │ $20.93 │ $0.00  │ $282.52         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938870 │ gerardo    │ NORMA ANGELICA CASILLAS GUTIERREZ │    25.5    │ $441.75    │ $35.35 │ $0.00  │ $477.10         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938869 │ gerardo    │ PUBLICO EN GENERAL                │     4.9    │ $84.88     │ $6.79  │ $0.00  │ $91.67          │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938868 │ gerardo    │ NORMA ANGELICA CASILLAS GUTIERREZ │     5.4    │ $93.54     │ $7.49  │ $0.00  │ $101.03         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938867 │ gerardo    │ PUBLICO EN GENERAL                │     3.9    │ $67.55     │ $5.41  │ $0.00  │ $72.96          │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938866 │ gerardo    │ NORMA ANGELICA CASILLAS GUTIERREZ │    18.1    │ $313.56    │ $25.09 │ $0.00  │ $338.65         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938865 │ gerardo    │ PUBLICO EN GENERAL                │    10      │ $173.24    │ $13.86 │ $0.00  │ $187.10         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938863 │ gerardo    │ PUBLICO EN GENERAL                │    13.3618 │ $231.48    │ $18.52 │ $0.00  │ $250.00         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938864 │ gerardo    │ PUBLICO EN GENERAL                │    19      │ $329.15    │ $26.34 │ $0.00  │ $355.49         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938862 │ gerardo    │ PUBLICO EN GENERAL                │    10.1    │ $174.97    │ $14.00 │ $0.00  │ $188.97         │
+├─────────┼────────────┼───────────────────────────────────┼────────────┼────────────┼────────┼────────┼─────────────────┤
+│ 1938861 │ gerardo    │ NORMA ANGELICA CASILLAS GUTIERREZ │    13.9    │ $240.79    │ $19.27 │ $0.00  │ $260.06         │
+╘═════════╧════════════╧═══════════════════════════════════╧════════════╧════════════╧════════╧════════╧═════════════════╛
+-------------------------------------------
+-------------------------------------------
+<br/></div></td></tr></tbody></table></body></html>

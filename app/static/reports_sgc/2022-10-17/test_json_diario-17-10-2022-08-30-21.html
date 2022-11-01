@@ -1,377 +1,0 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>Test Report</title>
-    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
-  <body onLoad="init()">
-    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-
-function toArray(iter) {
-    if (iter === null) {
-        return null;
-    }
-    return Array.prototype.slice.call(iter);
-}
-
-function find(selector, elem) { // eslint-disable-line no-redeclare
-    if (!elem) {
-        elem = document;
-    }
-    return elem.querySelector(selector);
-}
-
-function findAll(selector, elem) {
-    if (!elem) {
-        elem = document;
-    }
-    return toArray(elem.querySelectorAll(selector));
-}
-
-function sortColumn(elem) {
-    toggleSortStates(elem);
-    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
-    let key;
-    if (elem.classList.contains('result')) {
-        key = keyResult;
-    } else if (elem.classList.contains('links')) {
-        key = keyLink;
-    } else {
-        key = keyAlpha;
-    }
-    sortTable(elem, key(colIndex));
-}
-
-function showAllExtras() { // eslint-disable-line no-unused-vars
-    findAll('.col-result').forEach(showExtras);
-}
-
-function hideAllExtras() { // eslint-disable-line no-unused-vars
-    findAll('.col-result').forEach(hideExtras);
-}
-
-function showExtras(colresultElem) {
-    const extras = colresultElem.parentNode.nextElementSibling;
-    const expandcollapse = colresultElem.firstElementChild;
-    extras.classList.remove('collapsed');
-    expandcollapse.classList.remove('expander');
-    expandcollapse.classList.add('collapser');
-}
-
-function hideExtras(colresultElem) {
-    const extras = colresultElem.parentNode.nextElementSibling;
-    const expandcollapse = colresultElem.firstElementChild;
-    extras.classList.add('collapsed');
-    expandcollapse.classList.remove('collapser');
-    expandcollapse.classList.add('expander');
-}
-
-function showFilters() {
-    const filterItems = document.getElementsByClassName('filter');
-    for (let i = 0; i < filterItems.length; i++)
-        filterItems[i].hidden = false;
-}
-
-function addCollapse() {
-    // Add links for show/hide all
-    const resulttable = find('table#results-table');
-    const showhideall = document.createElement('p');
-    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
-                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
-    resulttable.parentElement.insertBefore(showhideall, resulttable);
-
-    // Add show/hide link to each result
-    findAll('.col-result').forEach(function(elem) {
-        const collapsed = getQueryParameter('collapsed') || 'Passed';
-        const extras = elem.parentNode.nextElementSibling;
-        const expandcollapse = document.createElement('span');
-        if (extras.classList.contains('collapsed')) {
-            expandcollapse.classList.add('expander');
-        } else if (collapsed.includes(elem.innerHTML)) {
-            extras.classList.add('collapsed');
-            expandcollapse.classList.add('expander');
-        } else {
-            expandcollapse.classList.add('collapser');
-        }
-        elem.appendChild(expandcollapse);
-
-        elem.addEventListener('click', function(event) {
-            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
-                showExtras(event.currentTarget);
-            } else {
-                hideExtras(event.currentTarget);
-            }
-        });
-    });
-}
-
-function getQueryParameter(name) {
-    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
-    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
-}
-
-function init () { // eslint-disable-line no-unused-vars
-    resetSortHeaders();
-
-    addCollapse();
-
-    showFilters();
-
-    sortColumn(find('.initial-sort'));
-
-    findAll('.sortable').forEach(function(elem) {
-        elem.addEventListener('click',
-            function() {
-                sortColumn(elem);
-            }, false);
-    });
-}
-
-function sortTable(clicked, keyFunc) {
-    const rows = findAll('.results-table-row');
-    const reversed = !clicked.classList.contains('asc');
-    const sortedRows = sort(rows, keyFunc, reversed);
-    /* Whole table is removed here because browsers acts much slower
-     * when appending existing elements.
-     */
-    const thead = document.getElementById('results-table-head');
-    document.getElementById('results-table').remove();
-    const parent = document.createElement('table');
-    parent.id = 'results-table';
-    parent.appendChild(thead);
-    sortedRows.forEach(function(elem) {
-        parent.appendChild(elem);
-    });
-    document.getElementsByTagName('BODY')[0].appendChild(parent);
-}
-
-function sort(items, keyFunc, reversed) {
-    const sortArray = items.map(function(item, i) {
-        return [keyFunc(item), i];
-    });
-
-    sortArray.sort(function(a, b) {
-        const keyA = a[0];
-        const keyB = b[0];
-
-        if (keyA == keyB) return 0;
-
-        if (reversed) {
-            return keyA < keyB ? 1 : -1;
-        } else {
-            return keyA > keyB ? 1 : -1;
-        }
-    });
-
-    return sortArray.map(function(item) {
-        const index = item[1];
-        return items[index];
-    });
-}
-
-function keyAlpha(colIndex) {
-    return function(elem) {
-        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
-    };
-}
-
-function keyLink(colIndex) {
-    return function(elem) {
-        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
-        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
-    };
-}
-
-function keyResult(colIndex) {
-    return function(elem) {
-        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
-            'Skipped', 'Passed'];
-        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
-    };
-}
-
-function resetSortHeaders() {
-    findAll('.sort-icon').forEach(function(elem) {
-        elem.parentNode.removeChild(elem);
-    });
-    findAll('.sortable').forEach(function(elem) {
-        const icon = document.createElement('div');
-        icon.className = 'sort-icon';
-        icon.textContent = 'vvv';
-        elem.insertBefore(icon, elem.firstChild);
-        elem.classList.remove('desc', 'active');
-        elem.classList.add('asc', 'inactive');
-    });
-}
-
-function toggleSortStates(elem) {
-    //if active, toggle between asc and desc
-    if (elem.classList.contains('active')) {
-        elem.classList.toggle('asc');
-        elem.classList.toggle('desc');
-    }
-
-    //if inactive, reset all other functions and add ascending active
-    if (elem.classList.contains('inactive')) {
-        resetSortHeaders();
-        elem.classList.remove('inactive');
-        elem.classList.add('active');
-    }
-}
-
-function isAllRowsHidden(value) {
-    return value.hidden == false;
-}
-
-function filterTable(elem) { // eslint-disable-line no-unused-vars
-    const outcomeAtt = 'data-test-result';
-    const outcome = elem.getAttribute(outcomeAtt);
-    const classOutcome = outcome + ' results-table-row';
-    const outcomeRows = document.getElementsByClassName(classOutcome);
-
-    for(let i = 0; i < outcomeRows.length; i++){
-        outcomeRows[i].hidden = !elem.checked;
-    }
-
-    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
-    const allRowsHidden = rows.length == 0 ? true : false;
-    const notFoundMessage = document.getElementById('not-found-message');
-    notFoundMessage.hidden = !allRowsHidden;
-}
-</script>
-    <h1>10-17-2022-08-32-33</h1>
-    <p>Report generated on 17-Oct-2022 at 08:32:33 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
-    <h2>Environment</h2>
-    <table id="environment">
-      <tr>
-        <td>Packages</td>
-        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
-      <tr>
-        <td>Platform</td>
-        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
-      <tr>
-        <td>Plugins</td>
-        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
-      <tr>
-        <td>Python</td>
-        <td>3.9.13</td></tr></table>
-    <h2>Summary</h2>
-    <p>1 tests ran in 129.99 seconds. </p>
-    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
-    <h2>Results</h2>
-    <table id="results-table">
-      <thead id="results-table-head">
-        <tr>
-          <th class="sortable result initial-sort" col="result">Result</th>
-          <th class="sortable" col="name">Test</th>
-          <th class="sortable" col="duration">Duration</th>
-          <th class="sortable links" col="links">Links</th></tr>
-        <tr hidden="true" id="not-found-message">
-          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">app/static/pruebas_sgc/test_json_diario.py::test_ventas_vs_json</td>
-          <td class="col-duration">129.89</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - Downloading:   0%|          | 0.00/6.35M [00:00&lt;?, ?B/s][WDM] - Downloading:   6%|▌         | 376k/6.35M [00:00&lt;00:01, 3.85MB/s][WDM] - Downloading:  12%|█▏        | 752k/6.35M [00:00&lt;00:01, 2.99MB/s][WDM] - Downloading:  16%|█▌        | 1.03M/6.35M [00:00&lt;00:03, 1.45MB/s][WDM] - Downloading:  19%|█▉        | 1.23M/6.35M [00:00&lt;00:04, 1.15MB/s][WDM] - Downloading:  22%|██▏       | 1.38M/6.35M [00:01&lt;00:05, 976kB/s] [WDM] - Downloading:  24%|██▎       | 1.50M/6.35M [00:01&lt;00:05, 916kB/s][WDM] - Downloading:  25%|██▌       | 1.60M/6.35M [00:01&lt;00:05, 843kB/s][WDM] - Downloading:  27%|██▋       | 1.70M/6.35M [00:01&lt;00:06, 806kB/s][WDM] - Downloading:  28%|██▊       | 1.78M/6.35M [00:01&lt;00:06, 797kB/s][WDM] - Downloading:  29%|██▉       | 1.87M/6.35M [00:01&lt;00:06, 752kB/s][WDM] - Downloading:  31%|███       | 1.95M/6.35M [00:02&lt;00:06, 731kB/s][WDM] - Downloading:  32%|███▏      | 2.02M/6.35M [00:02&lt;00:06, 730kB/s][WDM] - Downloading:  33%|███▎      | 2.12M/6.35M [00:02&lt;00:05, 752kB/s][WDM] - Downloading:  35%|███▍      | 2.21M/6.35M [00:02&lt;00:05, 800kB/s][WDM] - Downloading:  36%|███▌      | 2.29M/6.35M [00:02&lt;00:05, 801kB/s][WDM] - Downloading:  37%|███▋      | 2.37M/6.35M [00:02&lt;00:05, 764kB/s][WDM] - Downloading:  39%|███▊      | 2.45M/6.35M [00:02&lt;00:05, 778kB/s][WDM] - Downloading:  40%|███▉      | 2.52M/6.35M [00:02&lt;00:05, 758kB/s][WDM] - Downloading:  41%|████      | 2.60M/6.35M [00:02&lt;00:05, 753kB/s][WDM] - Downloading:  42%|████▏     | 2.68M/6.35M [00:03&lt;00:05, 744kB/s][WDM] - Downloading:  43%|████▎     | 2.76M/6.35M [00:03&lt;00:05, 745kB/s][WDM] - Downloading:  45%|████▍     | 2.84M/6.35M [00:03&lt;00:04, 760kB/s][WDM] - Downloading:  46%|████▌     | 2.91M/6.35M [00:03&lt;00:04, 748kB/s][WDM] - Downloading:  47%|████▋     | 2.99M/6.35M [00:03&lt;00:04, 747kB/s][WDM] - Downloading:  48%|████▊     | 3.07M/6.35M [00:03&lt;00:04, 737kB/s][WDM] - Downloading:  50%|████▉     | 3.15M/6.35M [00:03&lt;00:04, 734kB/s][WDM] - Downloading:  51%|█████     | 3.22M/6.35M [00:03&lt;00:04, 730kB/s][WDM] - Downloading:  52%|█████▏    | 3.29M/6.35M [00:03&lt;00:04, 730kB/s][WDM] - Downloading:  53%|█████▎    | 3.36M/6.35M [00:04&lt;00:04, 664kB/s][WDM] - Downloading:  54%|█████▍    | 3.45M/6.35M [00:04&lt;00:04, 695kB/s][WDM] - Downloading:  56%|█████▌    | 3.53M/6.35M [00:04&lt;00:04, 714kB/s][WDM] - Downloading:  57%|█████▋    | 3.61M/6.35M [00:04&lt;00:03, 742kB/s][WDM] - Downloading:  58%|█████▊    | 3.69M/6.35M [00:04&lt;00:03, 705kB/s][WDM] - Downloading:  59%|█████▉    | 3.77M/6.35M [00:04&lt;00:03, 730kB/s][WDM] - Downloading:  61%|██████    | 3.85M/6.35M [00:04&lt;00:03, 689kB/s][WDM] - Downloading:  62%|██████▏   | 3.94M/6.35M [00:04&lt;00:03, 738kB/s][WDM] - Downloading:  63%|██████▎   | 4.02M/6.35M [00:04&lt;00:03, 767kB/s][WDM] - Downloading:  65%|██████▍   | 4.10M/6.35M [00:05&lt;00:03, 752kB/s][WDM] - Downloading:  66%|██████▌   | 4.18M/6.35M [00:05&lt;00:03, 737kB/s][WDM] - Downloading:  67%|██████▋   | 4.26M/6.35M [00:05&lt;00:03, 722kB/s][WDM] - Downloading:  68%|██████▊   | 4.33M/6.35M [00:05&lt;00:03, 632kB/s][WDM] - Downloading:  69%|██████▉   | 4.39M/6.35M [00:05&lt;00:03, 555kB/s][WDM] - Downloading:  70%|███████   | 4.46M/6.35M [00:05&lt;00:03, 590kB/s][WDM] - Downloading:  71%|███████▏  | 4.53M/6.35M [00:05&lt;00:03, 619kB/s][WDM] - Downloading:  72%|███████▏  | 4.60M/6.35M [00:05&lt;00:02, 647kB/s][WDM] - Downloading:  74%|███████▎  | 4.67M/6.35M [00:06&lt;00:02, 662kB/s][WDM] - Downloading:  75%|███████▍  | 4.74M/6.35M [00:06&lt;00:02, 673kB/s][WDM] - Downloading:  76%|███████▌  | 4.81M/6.35M [00:06&lt;00:02, 681kB/s][WDM] - Downloading:  77%|███████▋  | 4.88M/6.35M [00:06&lt;00:02, 671kB/s][WDM] - Downloading:  78%|███████▊  | 4.96M/6.35M [00:06&lt;00:02, 707kB/s][WDM] - Downloading:  79%|███████▉  | 5.04M/6.35M [00:06&lt;00:01, 723kB/s][WDM] - Downloading:  81%|████████  | 5.12M/6.35M [00:06&lt;00:01, 760kB/s][WDM] - Downloading:  82%|████████▏ | 5.21M/6.35M [00:06&lt;00:01, 781kB/s][WDM] - Downloading:  83%|████████▎ | 5.29M/6.35M [00:06&lt;00:01, 770kB/s][WDM] - Downloading:  85%|████████▍ | 5.37M/6.35M [00:06&lt;00:01, 766kB/s][WDM] - Downloading:  86%|████████▌ | 5.45M/6.35M [00:07&lt;00:01, 726kB/s][WDM] - Downloading:  87%|████████▋ | 5.53M/6.35M [00:07&lt;00:01, 771kB/s][WDM] - Downloading:  88%|████████▊ | 5.61M/6.35M [00:07&lt;00:01, 753kB/s][WDM] - Downloading:  90%|████████▉ | 5.69M/6.35M [00:07&lt;00:00, 748kB/s][WDM] - Downloading:  91%|█████████ | 5.77M/6.35M [00:07&lt;00:00, 738kB/s][WDM] - Downloading:  92%|█████████▏| 5.84M/6.35M [00:07&lt;00:00, 730kB/s][WDM] - Downloading:  93%|█████████▎| 5.91M/6.35M [00:07&lt;00:00, 711kB/s][WDM] - Downloading:  94%|█████████▍| 5.99M/6.35M [00:07&lt;00:00, 734kB/s][WDM] - Downloading:  95%|█████████▌| 6.06M/6.35M [00:07&lt;00:00, 728kB/s][WDM] - Downloading:  97%|█████████▋| 6.13M/6.35M [00:08&lt;00:00, 723kB/s][WDM] - Downloading:  98%|█████████▊| 6.21M/6.35M [00:08&lt;00:00, 728kB/s][WDM] - Downloading:  99%|█████████▉| 6.28M/6.35M [00:08&lt;00:00, 724kB/s][WDM] - Downloading: 100%|██████████| 6.35M/6.35M [00:08&lt;00:00, 792kB/s]
-<br/> ------------------------------Captured stdout call------------------------------ <br/>-------------------------------------------
--------------------------------------------
-Datos y diferencias: 
-
--------------------------------------------
-Datos en inventario:
-
-----------------Recepciones----------------
-Dia inventario: 2022-10-16
-Fecha inicial inventario: 2022-10-16 07:00am
-Fecha Final del Inventario: 2022-10-17 07:00am
-Entradas LT: 0.00
-Cantidad de entradas: 0
-Ventas Total Inventario: 0.00
--------------------------------------------
-------------------Ventas-------------------
--------------------------------------------
-Datos en SGC Ventas:
-
-Fecha de inicio de informe :  2022-10-16 07:00:00
-Fecha de final de informe :  2022-10-17 07:00:00
-Cantidad de servicios :  0
-Servicios Facturados :  0
-Servicios Terminados :  0
-Total Lt en SGC ventas :  0
--------------------------------------------
--------------------------------------------
-Datos en JSON:
-
---------------Recepciones JSON-------------
-Total Recepciones: 0
-Total entregado JSON :  0
-Entregas en nodo entregas en JSON :  0
-Documentos en nodo entregas en JSON :  0
-Conteo Entregas en JSON :  0
-Conteo Facturados en JSON :  0
-Total Documentos JSON :  0
--------------------------------------------
--------------------------------------------
-Diferencias:
-
-Diferencia en entregas vs nodo Total entregas JSON :  0
-Diferencia en Documentos vs nodo Total Documentos JSON :  0
-Diferencia de LT :  0.0
-Diferencia de servicios :  0
-Diferencia facturas :  0
--------------------------------------------
--------------------------------------------
-Datos de Servicios de descarga: 
-
-╒═════════╤════════════════╤══════════╤══════════════════════╤═════════╕
-│ Folio   │ Folio Fiscal   │ Estado   │ Volumen Compensado   │ Fecha   │
-╞═════════╪════════════════╪══════════╪══════════════════════╪═════════╡
-╘═════════╧════════════════╧══════════╧══════════════════════╧═════════╛
--------------------------------------------
--------------------------------------------
-Datos de ventas: 
-
-╒════════════════╤═════════╤═════════════════════╤══════════╤════════╤═════════════╤═══════════╤══════════════════╕
-│ Num.registro   │ Fecha   │ Volumen entregado   │ Estado   │ CFDI   │ Tipo CFDI   │ Estatus   │ Valor numerico   │
-╞════════════════╪═════════╪═════════════════════╪══════════╪════════╪═════════════╪═══════════╪══════════════════╡
-╘════════════════╧═════════╧═════════════════════╧══════════╧════════╧═════════════╧═══════════╧══════════════════╛
--------------------------------------------
--------------------------------------------
-Datos de JSON(Entregas): 
-
-╒════════════════╤═════════╤═════════════════════╤════════╤═════════════╤══════════════════╕
-│ Num.registro   │ Fecha   │ Volumen entregado   │ CFDI   │ Tipo CFDI   │ Valor numerico   │
-╞════════════════╪═════════╪═════════════════════╪════════╪═════════════╪══════════════════╡
-╘════════════════╧═════════╧═════════════════════╧════════╧═════════════╧══════════════════╛
--------------------------------------------
--------------------------------------------
-Datos de JSON(Recepciones): 
-
-╒════════════════╤═════════╤════════╤═════════════╕
-│ Num.registro   │ Fecha   │ CFDI   │ Tipo CFDI   │
-╞════════════════╪═════════╪════════╪═════════════╡
-╘════════════════╧═════════╧════════╧═════════════╛
--------------------------------------------
--------------------------------------------
-Facturados sin complementos: 
-
-╒════════════╤════════╤═════════╤═══════════╕
-│ Servicio   │ CFDI   │ Fecha   │ Estatus   │
-╞════════════╪════════╪═════════╪═══════════╡
-╘════════════╧════════╧═════════╧═══════════╛
--------------------------------------------
-Ventas registradas que no aparece en el JSON: 
-
-╒════════════╤════════╤═════════╤═══════════╕
-│ Servicio   │ CFDI   │ Fecha   │ Estatus   │
-╞════════════╪════════╪═════════╪═══════════╡
-╘════════════╧════════╧═════════╧═══════════╛
--------------------------------------------
-<br/></div></td></tr></tbody></table></body></html>
