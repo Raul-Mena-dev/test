@@ -1,4 +1,4 @@
-#!/home/rmenapc/Escritorio/teststatio/venv/bin/python
+#!/home/rmenapc/Escritorio/test_station/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {% block navbar %}
+            {% include 'navbar.html' %}
+    {% endblock %}
+
+    <p class="mt-2">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-success" role="alert">
+              {{ message }}
+            </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </p>
+      {% if msg %}
+        <p class=error><strong>Error:</strong> {{ msg }}
+      {% endif %}
+<div class="container mt-2" >
+    <h1><i class="fa-solid fa-code-branch  me-2"></i>Instancias</h1>
+    <ul class="list-group" id="lista">
+        {% for instancia in lista %}
+        <li class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" >
+            <div>
+                <span class="fw-bold">Nombre de instancia: </span>{{instancia['nombre_de_instancia']}}<br>
+                <span class="fw-bold">URL: </span>{{instancia['url_de_instancia']}}</span>
+            </div>
+          </a>
+          {% if session['id'] %}
+          <div>
+            <div class="input-group">
+              {% set instancia = instancia['nombre_de_instancia'] %}
+              {% set texto = 'texto_' + instancia %}
+                <input type="text" onkeyup="nuevaInstancia('{{instancia}}')" class="form-control" id="{{texto}}" placeholder="Nueva URL" aria-label="Nueva URL" aria-describedby="{{instancia['nombre_de_instancia']}}">
+                <a class="btn btn-outline-secondary disabled" id="{{instancia}}" onclick="return confirmarCambio()" ><i class="fa-solid fa-rotate me-2"></i>Cambiar</a>
+              </div>
+          </div>
+         {% endif %}
+        </li>
+        
+        {% endfor %}
+    </ul>
+</div>
+<div class="mt-5">
+  {% include 'footer.html' %}
+</div>
+{% endblock %}

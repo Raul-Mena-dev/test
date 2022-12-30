@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {% block navbar %}
+            {% include 'navbar.html' %}
+    {% endblock %}
+
+    {% include 'buscador.html' %}
+<div class="container mt-2" id="lista" >
+    <h1><i class="fa-solid fa-gears me-1"></i>Test's</h1>
+    <ul class="list-group" >
+        {% for test in tests %}
+        <li class="list-group-item list-group-item-action" > 
+            <button class="btn btn-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample{{loop.index}}"  aria-expanded="false" aria-controls="collapseExample{{loop.index}}">
+              <i class="fa-solid fa-code me-2"></i>{{test['nombre_prueba']}}
+              </button>
+            <div class="collapse mt-2" id="collapseExample{{loop.index}}">
+              <div class="card card-body mt-1">
+                <p class="fw-bold">Autor: {{test['usuario']}} </p>
+                {% set lista = test['text'].split('-') %}
+                  {% for x in lista %}
+                  <p>{{x}}</p>
+                  {% endfor %}
+              </div>
+                <label for="fecha"><i class="fa-solid fa-calendar-days"></i> <strong>Fecha del Test: </strong> </label>
+                {% set prueba = test['nombre_prueba'] %}
+              <input type="date" name="fecha" id="fecha{{test['nombre_prueba']}}" class="me-2" onchange="getFecha('{{prueba}}')">
+              <a href="/test_gasstation/{{test['nombre_prueba']}}" style="visibility: hidden" id="link{{test['nombre_prueba']}}"></a>
+              <a class="btn btn-success mt-1" id="boton{{test['nombre_prueba']}}" onclick="desactivar();" href="/test_gasstation/{{test['nombre_prueba']}}">
+                <i class="fa-solid fa-gears me-1"></i>
+                
+                Correr test</a>
+                <a class="btn btn-success mt-1 disabled" id="spinner" style="display: none;">
+                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  Test en proceso</a>
+            </div>
+          </li>
+        {% endfor %}
+    </ul>
+</div>
+<div class="mt-5">
+  {% include 'footer.html' %}
+</div>
+{% endblock %}

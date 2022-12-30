@@ -251,17 +251,17 @@ def test_ventas_vs_json(driver, fecha_test, name='admin', password='Z76U4CFIx#')
         json_vntad.click()
         json_d.click()
         time.sleep(8)
-        with ZipFile(f'/home/rmenapc/Descargas/{nombre_json_vntad}', 'r') as z:
-            z.extractall('/home/rmenapc/Descargas/')
-        os.remove(f'/home/rmenapc/Descargas/{nombre_json_vntad}')
-        with ZipFile(f'/home/rmenapc/Descargas/{nombre_json_d}', 'r') as z:
-            z.extractall('/home/rmenapc/Descargas/')
-        os.remove(f'/home/rmenapc/Descargas/{nombre_json_d}')
+        with ZipFile(f'/home/rmenapc/Escritorio/test_station/{nombre_json_vntad}', 'r') as z:
+            z.extractall('/home/rmenapc/Escritorio/test_station/')
+        os.remove(f'/home/rmenapc/Escritorio/test_station/{nombre_json_vntad}')
+        with ZipFile(f'/home/rmenapc/Escritorio/test_station/{nombre_json_d}', 'r') as z:
+            z.extractall('/home/rmenapc/Escritorio/test_station/')
+        os.remove(f'/home/rmenapc/Escritorio/test_station/{nombre_json_d}')
 
         # sacamos los datos del json
         nombre_json_vntad = nombre_json_vntad.replace('.zip', '.json')
         nombre_json_d = nombre_json_d.replace('.zip', '.json')
-        with open(f'/home/rmenapc/Descargas/{nombre_json_d}', 'r') as json_file:
+        with open(f'/home/rmenapc/Escritorio/test_station/{nombre_json_d}', 'r') as json_file:
             json_load = json.load(json_file)
 
         num_entregas = json_load['ControlesVolumetricos']['Producto'][0]['Tanque'][0]['Entregas']['TotalEntregas']
@@ -368,8 +368,8 @@ def test_ventas_vs_json(driver, fecha_test, name='admin', password='Z76U4CFIx#')
         print(exc)
         assert False, 'not ok D:'
 
-    os.remove(f'/home/rmenapc/Descargas/{nombre_json_vntad}')
-    os.remove(f'/home/rmenapc/Descargas/{nombre_json_d}')
+    os.remove(f'/home/rmenapc/Escritorio/test_station/{nombre_json_vntad}')
+    os.remove(f'/home/rmenapc/Escritorio/test_station/{nombre_json_d}')
     print('Test Salidas Almacen contra el JSON Diario\n')
     print('Test Salidas Almacen contra el JSON Diario, Compara las salidas de almacen contra el JSON diario,\n'
           'Comprueba si las entragas y litros cuadran entre inventario y JSON.\n'

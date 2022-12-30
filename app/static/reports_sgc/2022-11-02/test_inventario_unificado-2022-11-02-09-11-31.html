@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>test_inventario_unificado-2022-11-02-09-11-31.html</h1>
+    <p>Report generated on 02-Nov-2022 at 09:12:03 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.2", "rerunfailures": "10.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 29.69 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_inventario_unificado.py::test_inventario_fisico_inicial</td>
+          <td class="col-duration">29.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">driver = &lt;selenium.webdriver.chrome.webdriver.WebDriver (session=&quot;8623e2ccf342e04c1a46c9ae9969b5c1&quot;)&gt;, fecha_test = &#x27;2022-11-01&#x27;, name = &#x27;admin&#x27;<br/>password = &#x27;Z76U4CFIx#&#x27;, name_web = &#x27;admin&#x27;, password_web = &#x27;Ku8L08iEsb86&#x27;<br/><br/>    def test_inventario_fisico_inicial(driver, fecha_test, name=&#x27;admin&#x27;, password=&#x27;Z76U4CFIx#&#x27;, name_web=&#x27;admin&#x27;, password_web=&#x27;Ku8L08iEsb86&#x27;):<br/>        datos_inventario_inicial = {}<br/>        datos_inventario_final = {}<br/>        datos_entradas = {}<br/>        datos_inventario = {}<br/>        datos_ventas = {}<br/>        productos = {}<br/>        datos_inventario_tanque = {}<br/>        dia_inventario = fecha_test<br/>        try:<br/>            login(driver, name, password)<br/>            time.sleep(2)<br/>            boton_inventario = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_7&quot;]&#x27;)<br/>            boton_inventario.click()<br/>            sub_boton_inventario = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;moduleTab_7_isies_inventario_basico&quot;]&#x27;)<br/>            sub_boton_inventario.click()<br/>            time.sleep(2)<br/>            datos_inventario_inicial[&#x27;Dia inventario&#x27;] = dia_inventario<br/>            fecha = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;inventario_basic&quot;]&#x27;)<br/>            fecha.send_keys(dia_inventario)<br/>            fecha.send_keys(Keys.ENTER)<br/>            time.sleep(1)<br/>            if check_exists_by_xpath(driver, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;):<br/>                documento = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[3]/td[1]/a&#x27;)<br/>                documento.click()<br/>                time.sleep(1)<br/>                fecha_inicial = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[2]/tbody/tr[1]/td[2]&#x27;).text<br/>                datos_inventario_inicial[&#x27;Fecha inicial inventario&#x27;] = fecha_inicial<br/>                fecha_inicial = convertir_fecha_24(fecha_inicial)<br/>                fecha_inicial = fecha_inicial.split(&#x27; &#x27;)<br/>                hora_inicial = fecha_inicial[1]<br/>                hora_inicial = hora_inicial.replace(&#x27;pm&#x27;, &#x27;&#x27;)<br/>                hora_inicial = hora_inicial.replace(&#x27;am&#x27;, &#x27;&#x27;)<br/>                hora_inicial = hora_inicial.replace(&#x27;:&#x27;, &#x27;&#x27;)<br/>                time.sleep(1)<br/>                inventario_fisico_inicial = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;lienzo&quot;]/table[3]/tbody/tr[2]/td[2]&#x27;).text<br/>                # nos movemos a almacen<br/>                boton_almacen = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;grouptab_6&quot;]&#x27;)<br/>                boton_almacen.click()<br/>                sub_boton_almacen = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;moduleTab_6_isies_registros_medidor_almacen&quot;]&#x27;)<br/>                sub_boton_almacen.click()<br/>                fecha_registro = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;fecha_lectura_basic&quot;]&#x27;)<br/>                fecha_registro.send_keys(datos_inventario_inicial[&#x27;Dia inventario&#x27;])<br/>                fecha_registro.send_keys(Keys.ENTER)<br/>                i = 3<br/>                tabla = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody&#x27;)<br/>                listado = tabla.find_elements(By.TAG_NAME, &#x27;tr&#x27;)<br/>                len_listado = len(listado)<br/>                len_listado -= 3<br/>                if check_exists_by_xpath(driver, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{i}]/td[12]&#x27;):<br/>                    fecha_registro = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{i}]/td[14]&#x27;).text<br/>                    datos_inventario_inicial[&#x27;Fecha de registro mas proxima&#x27;] = fecha_registro<br/>                    fecha_registro = convertir_fecha_24(fecha_registro)<br/>                    solo_fecha_registro = fecha_registro.split(&#x27; &#x27;)<br/>                    hora_registro = solo_fecha_registro[1]<br/>                    hora_registro = hora_registro.replace(&#x27;am&#x27;, &#x27;&#x27;)<br/>                    hora_registro = hora_registro.replace(&#x27;pm&#x27;, &#x27;&#x27;)<br/>                    hora_registro = hora_registro.replace(&#x27;:&#x27;, &#x27;&#x27;)<br/>                    while int(hora_registro) &gt; int(hora_inicial):<br/>                        if i &gt; len_listado:<br/>                            flecha_next = driver.find_element(By.XPATH, &#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[1]/td/table/tbody/tr/td[2]/button[3]&#x27;)<br/>                            flecha_next.click()<br/>                            time.sleep(3)<br/>                            i = 3<br/>                        fecha_registro = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{i}]/td[14]&#x27;).text<br/>                        fecha_registro = convertir_fecha_24(fecha_registro)<br/>                        solo_fecha_registro = fecha_registro.split(&#x27; &#x27;)<br/>                        hora_registro = solo_fecha_registro[1]<br/>                        hora_registro = hora_registro.replace(&#x27;pm&#x27;, &#x27;&#x27;)<br/>                        hora_registro = hora_registro.replace(&#x27;am&#x27;, &#x27;&#x27;)<br/>                        hora_registro = hora_registro.replace(&#x27;:&#x27;, &#x27;&#x27;)<br/>                        if int(hora_registro) &lt;= int(hora_inicial):<br/>                            datos_inventario_inicial[&#x27;Fecha de registro mas proxima&#x27;] = fecha_registro<br/>                            break<br/>                        else:<br/>                            i += 1<br/>                    folio = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{i}]/td[1]&#x27;).text<br/>                    volumen = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{i}]/td[7]&#x27;).text<br/>                    compensado = driver.find_element(By.XPATH, f&#x27;//*[@id=&quot;MassUpdate&quot;]/table/tbody/tr[{i}]/td[12]&#x27;).text<br/>                    datos_inventario_inicial[&#x27;Folio de registro mas proximo&#x27;] = folio<br/>                    inventario_fisico_inicial = inventario_fisico_inicial.replace(&#x27;kg&#x27;, &#x27;&#x27;)<br/>                    inventario_fisico_inicial = inventario_fisico_inicial.replace(&#x27;lt&#x27;, &#x27;&#x27;)<br/>                    inventario_fisico_inicial = inventario_fisico_inicial.replace(&#x27; &#x27;, &#x27;&#x27;)<br/>                    inventario_fisico_inicial = inventario_fisico_inicial.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                    datos_inventario_inicial[&#x27;Volumen Fisico Inicial&#x27;] = inventario_fisico_inicial<br/>                    volumen = volumen.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                    compensado.replace(&#x27;,&#x27;, &#x27;&#x27;)<br/>                    datos_inventario_inicial[&#x27;Volumen Almacen + Compensado&#x27;] = float(volumen) + float(compensado)<br/>                    datos_inventario_inicial[&#x27;Volumen Almacen + Compensado&#x27;] = round(datos_inventario_inicial[&#x27;Volumen Almacen + Compensado&#x27;], 2)<br/>                    datos_inventario_inicial[&#x27;Diferencia&#x27;] = float(datos_inventario_inicial[&#x27;Volumen Fisico Inicial&#x27;]) - float(datos_inventario_inicial[&#x27;Volumen Almacen + Compensado&#x27;])<br/>            else:<br/>                print(&#x27;Test Unificado\n&#x27;)<br/>                print(&#x27;Test Unificado, Test que junta 5 test para contrstar cada apartado del inventario contra sus respectivos apartados:\n&#x27;<br/>                      &#x27;Test que se ejecutan:\n&#x27;<br/>                      &#x27;Inventario inicial\n&#x27;<br/>                      &#x27;Inventario final\n&#x27;<br/>                      &#x27;Inventario Entradas/Compras\n&#x27;<br/>                      &#x27;Inventario contra ventas\n&#x27;<br/>                      &#x27;Inventario contra Auditor anden \n&#x27;<br/>                      &#x27;\n\n&#x27;<br/>                      &#x27;Instancias: http://192.168.9.164/sgcweb, http://testventas.sgcweb.com.mx/&#x27;)<br/>                print(&#x27;\n\n&#x27;)<br/>                mensaje_de_salida(datos_inventario_inicial, datos_inventario_final, datos_entradas, datos_inventario, datos_ventas, datos_inventario_tanque)<br/>&gt;               assert False, f&#x27;No hay inventario del dia seleccionado. Fecha: {fecha_test}&#x27;<br/><span class="error">E               AssertionError: No hay inventario del dia seleccionado. Fecha: 2022-11-01</span><br/><span class="error">E               assert False</span><br/><br/>app/static/pruebas_sgc/test_inventario_unificado.py:182: AssertionError<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - Downloading:   0%|          | 0.00/7.26M [00:00&lt;?, ?B/s][WDM] - Downloading:   9%|▊         | 632k/7.26M [00:00&lt;00:01, 6.45MB/s][WDM] - Downloading:  17%|█▋        | 1.23M/7.26M [00:00&lt;00:05, 1.23MB/s][WDM] - Downloading:  21%|██        | 1.54M/7.26M [00:01&lt;00:06, 968kB/s] [WDM] - Downloading:  24%|██▍       | 1.73M/7.26M [00:01&lt;00:06, 952kB/s][WDM] - Downloading:  26%|██▌       | 1.89M/7.26M [00:01&lt;00:06, 900kB/s][WDM] - Downloading:  28%|██▊       | 2.02M/7.26M [00:02&lt;00:06, 849kB/s][WDM] - Downloading:  29%|██▉       | 2.12M/7.26M [00:02&lt;00:06, 823kB/s][WDM] - Downloading:  30%|███       | 2.21M/7.26M [00:02&lt;00:06, 809kB/s][WDM] - Downloading:  32%|███▏      | 2.30M/7.26M [00:02&lt;00:06, 823kB/s][WDM] - Downloading:  33%|███▎      | 2.38M/7.26M [00:02&lt;00:06, 802kB/s][WDM] - Downloading:  34%|███▍      | 2.47M/7.26M [00:02&lt;00:06, 778kB/s][WDM] - Downloading:  35%|███▌      | 2.55M/7.26M [00:02&lt;00:06, 776kB/s][WDM] - Downloading:  36%|███▋      | 2.63M/7.26M [00:02&lt;00:06, 777kB/s][WDM] - Downloading:  37%|███▋      | 2.71M/7.26M [00:03&lt;00:06, 720kB/s][WDM] - Downloading:  39%|███▊      | 2.81M/7.26M [00:03&lt;00:06, 746kB/s][WDM] - Downloading:  40%|████      | 2.91M/7.26M [00:03&lt;00:06, 726kB/s][WDM] - Downloading:  41%|████▏     | 3.00M/7.26M [00:03&lt;00:05, 746kB/s][WDM] - Downloading:  42%|████▏     | 3.08M/7.26M [00:03&lt;00:05, 752kB/s][WDM] - Downloading:  43%|████▎     | 3.16M/7.26M [00:03&lt;00:06, 698kB/s][WDM] - Downloading:  45%|████▍     | 3.25M/7.26M [00:03&lt;00:05, 752kB/s][WDM] - Downloading:  46%|████▌     | 3.33M/7.26M [00:03&lt;00:05, 752kB/s][WDM] - Downloading:  47%|████▋     | 3.41M/7.26M [00:04&lt;00:05, 779kB/s][WDM] - Downloading:  48%|████▊     | 3.49M/7.26M [00:04&lt;00:05, 723kB/s][WDM] - Downloading:  49%|████▉     | 3.56M/7.26M [00:04&lt;00:05, 717kB/s][WDM] - Downloading:  50%|█████     | 3.64M/7.26M [00:04&lt;00:05, 738kB/s][WDM] - Downloading:  51%|█████     | 3.72M/7.26M [00:04&lt;00:04, 757kB/s][WDM] - Downloading:  52%|█████▏    | 3.80M/7.26M [00:04&lt;00:05, 713kB/s][WDM] - Downloading:  53%|█████▎    | 3.88M/7.26M [00:04&lt;00:04, 713kB/s][WDM] - Downloading:  55%|█████▍    | 3.97M/7.26M [00:04&lt;00:04, 694kB/s][WDM] - Downloading:  56%|█████▌    | 4.07M/7.26M [00:04&lt;00:04, 784kB/s][WDM] - Downloading:  57%|█████▋    | 4.15M/7.26M [00:05&lt;00:04, 759kB/s][WDM] - Downloading:  58%|█████▊    | 4.23M/7.26M [00:05&lt;00:04, 753kB/s][WDM] - Downloading:  59%|█████▉    | 4.30M/7.26M [00:05&lt;00:04, 741kB/s][WDM] - Downloading:  60%|██████    | 4.38M/7.26M [00:05&lt;00:04, 733kB/s][WDM] - Downloading:  61%|██████▏   | 4.45M/7.26M [00:05&lt;00:04, 727kB/s][WDM] - Downloading:  62%|██████▏   | 4.53M/7.26M [00:05&lt;00:03, 730kB/s][WDM] - Downloading:  63%|██████▎   | 4.60M/7.26M [00:05&lt;00:03, 725kB/s][WDM] - Downloading:  64%|██████▍   | 4.67M/7.26M [00:05&lt;00:03, 720kB/s][WDM] - Downloading:  65%|██████▌   | 4.74M/7.26M [00:05&lt;00:04, 650kB/s][WDM] - Downloading:  66%|██████▋   | 4.81M/7.26M [00:06&lt;00:04, 561kB/s][WDM] - Downloading:  67%|██████▋   | 4.88M/7.26M [00:06&lt;00:04, 599kB/s][WDM] - Downloading:  68%|██████▊   | 4.95M/7.26M [00:06&lt;00:04, 591kB/s][WDM] - Downloading:  69%|██████▉   | 5.03M/7.26M [00:06&lt;00:03, 665kB/s][WDM] - Downloading:  70%|███████   | 5.11M/7.26M [00:06&lt;00:03, 690kB/s][WDM] - Downloading:  71%|███████▏  | 5.19M/7.26M [00:06&lt;00:03, 722kB/s][WDM] - Downloading:  73%|███████▎  | 5.27M/7.26M [00:06&lt;00:02, 770kB/s][WDM] - Downloading:  74%|███████▎  | 5.35M/7.26M [00:06&lt;00:02, 711kB/s][WDM] - Downloading:  75%|███████▍  | 5.42M/7.26M [00:07&lt;00:02, 707kB/s][WDM] - Downloading:  76%|███████▋  | 5.54M/7.26M [00:07&lt;00:02, 824kB/s][WDM] - Downloading:  77%|███████▋  | 5.62M/7.26M [00:07&lt;00:02, 795kB/s][WDM] - Downloading:  79%|███████▊  | 5.70M/7.26M [00:07&lt;00:02, 774kB/s][WDM] - Downloading:  80%|███████▉  | 5.78M/7.26M [00:07&lt;00:02, 756kB/s][WDM] - Downloading:  81%|████████  | 5.86M/7.26M [00:07&lt;00:01, 743kB/s][WDM] - Downloading:  82%|████████▏ | 5.94M/7.26M [00:07&lt;00:01, 728kB/s][WDM] - Downloading:  83%|████████▎ | 6.01M/7.26M [00:07&lt;00:01, 724kB/s][WDM] - Downloading:  84%|████████▎ | 6.08M/7.26M [00:07&lt;00:01, 727kB/s][WDM] - Downloading:  85%|████████▍ | 6.15M/7.26M [00:08&lt;00:01, 726kB/s][WDM] - Downloading:  86%|████████▌ | 6.22M/7.26M [00:08&lt;00:01, 722kB/s][WDM] - Downloading:  87%|████████▋ | 6.29M/7.26M [00:08&lt;00:01, 720kB/s][WDM] - Downloading:  88%|████████▊ | 6.36M/7.26M [00:08&lt;00:01, 718kB/s][WDM] - Downloading:  89%|████████▊ | 6.44M/7.26M [00:08&lt;00:01, 732kB/s][WDM] - Downloading:  90%|████████▉ | 6.52M/7.26M [00:08&lt;00:01, 745kB/s][WDM] - Downloading:  91%|█████████ | 6.59M/7.26M [00:08&lt;00:01, 682kB/s][WDM] - Downloading:  92%|█████████▏| 6.69M/7.26M [00:08&lt;00:00, 704kB/s][WDM] - Downloading:  93%|█████████▎| 6.76M/7.26M [00:08&lt;00:00, 684kB/s][WDM] - Downloading:  94%|█████████▍| 6.84M/7.26M [00:09&lt;00:00, 637kB/s][WDM] - Downloading:  96%|█████████▌| 6.95M/7.26M [00:09&lt;00:00, 758kB/s][WDM] - Downloading:  97%|█████████▋| 7.02M/7.26M [00:09&lt;00:00, 701kB/s][WDM] - Downloading:  98%|█████████▊| 7.12M/7.26M [00:09&lt;00:00, 746kB/s][WDM] - Downloading:  99%|█████████▉| 7.20M/7.26M [00:09&lt;00:00, 733kB/s][WDM] - Downloading: 100%|██████████| 7.26M/7.26M [00:09&lt;00:00, 789kB/s]
+<br/> ------------------------------Captured stdout call------------------------------ <br/>Test Unificado
+
+Test Unificado, Test que junta 5 test para contrstar cada apartado del inventario contra sus respectivos apartados:
+Test que se ejecutan:
+Inventario inicial
+Inventario final
+Inventario Entradas/Compras
+Inventario contra ventas
+Inventario contra Auditor anden 
+
+
+Instancias: http://192.168.9.164/sgcweb, http://testventas.sgcweb.com.mx/
+
+
+
+
+-------------------------------------------
+---------Test 1 Inventario inicial---------
+Test Inventario Fisico Inicial 
+
+Test Inventario Fisico Inicial, Compara el inventario Fisico Inicial del ultimo inventario el registro de almacen mas proximo a la fecha de inicio del inventario 
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+Datos de inventario fisico inicial: 
+
+Dia inventario :  2022-11-01
+
+-------------------------------------------
+----------Test 2 Inventario final----------
+Test Inventario Fisico Final 
+
+Test Inventario Fisico Final, Compara el inventario Fisico FInal del ultimo inventario el registro mas proximo de almacen a la fecha final del inventario 
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+Datos de inventario fisico final: 
+
+
+-------------------------------------------
+----------Test 3 Inventario Entradas/Compras----------
+Test Entradas
+
+Test Entradas, Compara los datos de Entradas/compras del ultimo inventario contra los datos de planta,
+ en descargas por documento., muestra diferencias si existen
+-------------------------------------------
+
+Datos Entradas/compras: 
+
+
+-------------------------------------------
+-----Test 4 Inventario contra ventas-------
+Test Inventario contra SGC 
+
+Test Inventario contra SGC, Compara los datos de ventas del ultimo inventario contra lo mostrado en Reporte condensado de ventas de SGC
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+Datos de inventario (apartado ventas): 
+
+-------------------------------------------
+Datos de ventas: 
+
+
+-------------------------------------------
+-----Test 5 Inventario Salidas de almacen----
+Test Inventario contra Salidas del tanque 
+
+Test Inventario contra Salidas del tanque, Compara los datos de Salidas de almacen del ultimo inventario contra los datos de Auditor Anden,Carga y los auto consumos 
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+------------Salidas del almacen------------
+
+
+-------------------------------------------
+-------------------------------------------
+
+<br/></div></td></tr></tbody></table></body></html>

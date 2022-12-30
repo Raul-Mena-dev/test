@@ -7,7 +7,7 @@ import random
 
 
 def login(driver, username, password):
-    driver.get("http://dashboard.gas-station-dev.com.s3-website-us-west-2.amazonaws.com/")
+    driver.get("https://test.gasstation.cloud/")
     time.sleep(3)
     user = driver.find_element(By.XPATH, '//*[@id="email"]')
     user.clear()
@@ -17,6 +17,17 @@ def login(driver, username, password):
     password_field.send_keys(password)
     password_field.submit()
 
+
+def loginprod(driver, username, password):
+    driver.get("https://pegasus.gasstation.cloud/")
+    time.sleep(3)
+    user = driver.find_element(By.XPATH, '//*[@id="email"]')
+    user.clear()
+    user.send_keys(username)
+    password_field = driver.find_element(By.XPATH, '//*[@id="password"]')
+    password_field.clear()
+    password_field.send_keys(password)
+    password_field.submit()
 
 def logout(driver):
     try:

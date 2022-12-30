@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>test_inventario_unificado-2022-11-23-09-48-09.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>test_inventario_unificado-2022-11-23-09-48-09.html</h1>
+    <p>Report generated on 23-Nov-2022 at 09:50:43 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.2.0"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.2.0", "metadata": "2.0.4"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 152.36 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_sgc/test_inventario_unificado.py::test_inventario_fisico_inicial</td>
+          <td class="col-duration">152.29</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - Downloading:   0%|          | 0.00/7.26M [00:00&lt;?, ?B/s][WDM] - Downloading:   3%|▎         | 216k/7.26M [00:00&lt;00:03, 2.21MB/s][WDM] - Downloading:  10%|█         | 760k/7.26M [00:00&lt;00:02, 2.48MB/s][WDM] - Downloading:  13%|█▎        | 0.98M/7.26M [00:00&lt;00:04, 1.49MB/s][WDM] - Downloading:  16%|█▌        | 1.14M/7.26M [00:00&lt;00:05, 1.23MB/s][WDM] - Downloading:  18%|█▊        | 1.27M/7.26M [00:00&lt;00:05, 1.14MB/s][WDM] - Downloading:  19%|█▉        | 1.39M/7.26M [00:01&lt;00:06, 973kB/s] [WDM] - Downloading:  21%|██        | 1.49M/7.26M [00:01&lt;00:06, 956kB/s][WDM] - Downloading:  22%|██▏       | 1.59M/7.26M [00:01&lt;00:06, 904kB/s][WDM] - Downloading:  23%|██▎       | 1.67M/7.26M [00:01&lt;00:06, 881kB/s][WDM] - Downloading:  24%|██▍       | 1.76M/7.26M [00:01&lt;00:06, 828kB/s][WDM] - Downloading:  25%|██▌       | 1.84M/7.26M [00:01&lt;00:07, 804kB/s][WDM] - Downloading:  26%|██▋       | 1.91M/7.26M [00:01&lt;00:07, 786kB/s][WDM] - Downloading:  27%|██▋       | 1.99M/7.26M [00:01&lt;00:07, 779kB/s][WDM] - Downloading:  29%|██▊       | 2.07M/7.26M [00:02&lt;00:07, 760kB/s][WDM] - Downloading:  30%|██▉       | 2.15M/7.26M [00:02&lt;00:08, 652kB/s][WDM] - Downloading:  31%|███▏      | 2.27M/7.26M [00:02&lt;00:06, 774kB/s][WDM] - Downloading:  32%|███▏      | 2.35M/7.26M [00:02&lt;00:06, 752kB/s][WDM] - Downloading:  33%|███▎      | 2.43M/7.26M [00:02&lt;00:06, 756kB/s][WDM] - Downloading:  35%|███▍      | 2.51M/7.26M [00:02&lt;00:06, 737kB/s][WDM] - Downloading:  36%|███▌      | 2.59M/7.26M [00:02&lt;00:07, 670kB/s][WDM] - Downloading:  37%|███▋      | 2.68M/7.26M [00:03&lt;00:06, 696kB/s][WDM] - Downloading:  38%|███▊      | 2.79M/7.26M [00:03&lt;00:05, 790kB/s][WDM] - Downloading:  39%|███▉      | 2.87M/7.26M [00:03&lt;00:06, 718kB/s][WDM] - Downloading:  41%|████      | 2.97M/7.26M [00:03&lt;00:05, 805kB/s][WDM] - Downloading:  42%|████▏     | 3.05M/7.26M [00:03&lt;00:06, 726kB/s][WDM] - Downloading:  43%|████▎     | 3.13M/7.26M [00:03&lt;00:05, 730kB/s][WDM] - Downloading:  44%|████▍     | 3.23M/7.26M [00:03&lt;00:06, 605kB/s][WDM] - Downloading:  46%|████▌     | 3.34M/7.26M [00:03&lt;00:06, 676kB/s][WDM] - Downloading:  48%|████▊     | 3.46M/7.26M [00:04&lt;00:05, 778kB/s][WDM] - Downloading:  49%|████▉     | 3.55M/7.26M [00:04&lt;00:04, 781kB/s][WDM] - Downloading:  50%|█████     | 3.63M/7.26M [00:04&lt;00:05, 739kB/s][WDM] - Downloading:  51%|█████     | 3.71M/7.26M [00:04&lt;00:05, 719kB/s][WDM] - Downloading:  52%|█████▏    | 3.78M/7.26M [00:04&lt;00:05, 680kB/s][WDM] - Downloading:  53%|█████▎    | 3.88M/7.26M [00:04&lt;00:05, 698kB/s][WDM] - Downloading:  55%|█████▍    | 3.98M/7.26M [00:04&lt;00:04, 778kB/s][WDM] - Downloading:  56%|█████▌    | 4.05M/7.26M [00:05&lt;00:05, 640kB/s][WDM] - Downloading:  57%|█████▋    | 4.12M/7.26M [00:05&lt;00:06, 542kB/s][WDM] - Downloading:  58%|█████▊    | 4.20M/7.26M [00:05&lt;00:05, 598kB/s][WDM] - Downloading:  59%|█████▉    | 4.29M/7.26M [00:05&lt;00:04, 669kB/s][WDM] - Downloading:  60%|██████    | 4.38M/7.26M [00:05&lt;00:04, 723kB/s][WDM] - Downloading:  62%|██████▏   | 4.48M/7.26M [00:05&lt;00:03, 811kB/s][WDM] - Downloading:  63%|██████▎   | 4.57M/7.26M [00:05&lt;00:03, 723kB/s][WDM] - Downloading:  64%|██████▍   | 4.65M/7.26M [00:05&lt;00:03, 689kB/s][WDM] - Downloading:  66%|██████▌   | 4.77M/7.26M [00:06&lt;00:03, 752kB/s][WDM] - Downloading:  67%|██████▋   | 4.86M/7.26M [00:06&lt;00:03, 800kB/s][WDM] - Downloading:  68%|██████▊   | 4.95M/7.26M [00:06&lt;00:03, 778kB/s][WDM] - Downloading:  69%|██████▉   | 5.02M/7.26M [00:06&lt;00:03, 757kB/s][WDM] - Downloading:  70%|███████   | 5.10M/7.26M [00:06&lt;00:03, 742kB/s][WDM] - Downloading:  71%|███████▏  | 5.18M/7.26M [00:06&lt;00:02, 738kB/s][WDM] - Downloading:  72%|███████▏  | 5.26M/7.26M [00:06&lt;00:02, 728kB/s][WDM] - Downloading:  73%|███████▎  | 5.33M/7.26M [00:06&lt;00:02, 721kB/s][WDM] - Downloading:  74%|███████▍  | 5.40M/7.26M [00:06&lt;00:02, 717kB/s][WDM] - Downloading:  75%|███████▌  | 5.47M/7.26M [00:07&lt;00:02, 722kB/s][WDM] - Downloading:  76%|███████▋  | 5.54M/7.26M [00:07&lt;00:02, 717kB/s][WDM] - Downloading:  77%|███████▋  | 5.61M/7.26M [00:07&lt;00:02, 713kB/s][WDM] - Downloading:  78%|███████▊  | 5.68M/7.26M [00:07&lt;00:02, 719kB/s][WDM] - Downloading:  79%|███████▉  | 5.75M/7.26M [00:07&lt;00:02, 715kB/s][WDM] - Downloading:  80%|████████  | 5.82M/7.26M [00:07&lt;00:02, 712kB/s][WDM] - Downloading:  81%|████████  | 5.89M/7.26M [00:07&lt;00:02, 710kB/s][WDM] - Downloading:  82%|████████▏ | 5.96M/7.26M [00:07&lt;00:01, 716kB/s][WDM] - Downloading:  83%|████████▎ | 6.03M/7.26M [00:07&lt;00:01, 713kB/s][WDM] - Downloading:  84%|████████▍ | 6.10M/7.26M [00:08&lt;00:01, 711kB/s][WDM] - Downloading:  85%|████████▌ | 6.17M/7.26M [00:08&lt;00:01, 709kB/s][WDM] - Downloading:  86%|████████▌ | 6.24M/7.26M [00:08&lt;00:01, 711kB/s][WDM] - Downloading:  87%|████████▋ | 6.31M/7.26M [00:08&lt;00:01, 715kB/s][WDM] - Downloading:  88%|████████▊ | 6.39M/7.26M [00:08&lt;00:01, 733kB/s][WDM] - Downloading:  89%|████████▉ | 6.48M/7.26M [00:08&lt;00:01, 676kB/s][WDM] - Downloading:  90%|█████████ | 6.56M/7.26M [00:08&lt;00:00, 735kB/s][WDM] - Downloading:  92%|█████████▏| 6.65M/7.26M [00:08&lt;00:00, 655kB/s][WDM] - Downloading:  93%|█████████▎| 6.76M/7.26M [00:08&lt;00:00, 756kB/s][WDM] - Downloading:  94%|█████████▍| 6.84M/7.26M [00:09&lt;00:00, 746kB/s][WDM] - Downloading:  95%|█████████▌| 6.91M/7.26M [00:09&lt;00:00, 727kB/s][WDM] - Downloading:  96%|█████████▋| 6.99M/7.26M [00:09&lt;00:00, 705kB/s][WDM] - Downloading:  98%|█████████▊| 7.09M/7.26M [00:09&lt;00:00, 794kB/s][WDM] - Downloading:  99%|█████████▉| 7.17M/7.26M [00:09&lt;00:00, 706kB/s][WDM] - Downloading: 100%|█████████▉| 7.26M/7.26M [00:09&lt;00:00, 723kB/s][WDM] - Downloading: 100%|██████████| 7.26M/7.26M [00:09&lt;00:00, 784kB/s]
+<br/> ------------------------------Captured stdout call------------------------------ <br/>Test Unificado
+
+Test Unificado, Test que junta 5 test para contrstar cada apartado del inventario contra sus respectivos apartados:
+Test que se ejecutan:
+Inventario inicial
+Inventario final
+Inventario Entradas/Compras
+Inventario contra ventas
+Inventario contra Auditor anden 
+
+
+Instancias: http://192.168.9.164/sgcweb, http://testventas.sgcweb.com.mx/
+
+
+
+
+-------------------------------------------
+---------Test 1 Inventario inicial---------
+Test Inventario Fisico Inicial 
+
+Test Inventario Fisico Inicial, Compara el inventario Fisico Inicial del ultimo inventario el registro de almacen mas proximo a la fecha de inicio del inventario 
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+Datos de inventario fisico inicial: 
+
+Dia inventario :  2022-11-22
+Fecha inicial inventario :  2022-11-22 07:00am
+Fecha de registro mas proxima :  2022-11-22 02:02pm
+Folio de registro mas proximo :  24683
+Volumen Fisico Inicial :  0.00
+Volumen Almacen + Compensado :  53850.02
+Diferencia :  53850.02
+
+-------------------------------------------
+----------Test 2 Inventario final----------
+Test Inventario Fisico Final 
+
+Test Inventario Fisico Final, Compara el inventario Fisico FInal del ultimo inventario el registro mas proximo de almacen a la fecha final del inventario 
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+Datos de inventario fisico final: 
+
+Dia inventario :  2022-11-22
+Fecha Final del Inventario :  2022-11-23 07:00am
+Fecha de registro mas proxima :  2022-11-23 06:52:00
+Folio de registro mas proximo :  24784
+Volumen Fisico Final Inventario :  53850.02
+Volumen Almacen + Compensado :  53850.02
+Diferencia :  0.0
+
+-------------------------------------------
+----------Test 3 Inventario Entradas/Compras----------
+Test Entradas
+
+Test Entradas, Compara los datos de Entradas/compras del ultimo inventario contra los datos de planta,
+ en descargas por documento., muestra diferencias si existen
+-------------------------------------------
+
+Datos Entradas/compras: 
+
+Dia inventario :  2022-11-22
+Fecha inicial inventario :  2022-11-22 07:00am
+Fecha Final del Inventario :  2022-11-23 07:00am
+Entradas/compras :  0.00
+Cantidad de entradas/compras :  0
+
+-------------------------------------------
+-----Test 4 Inventario contra ventas-------
+Test Inventario contra SGC 
+
+Test Inventario contra SGC, Compara los datos de ventas del ultimo inventario contra lo mostrado en Reporte condensado de ventas de SGC
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+Datos de inventario (apartado ventas): 
+
+Dia inventario :  2022-11-22
+Fecha inicial inventario :  2022-11-22 07:00am
+Fecha Final del Inventario :  2022-11-23 07:00am
+Carga autotanque :  0.00 lt
+Anden :  0.00 lt
+Servicio_medido :  0.00 lt
+Total sin Servicio medido :  0.0
+Total Ventas :  0.00 lt
+-------------------------------------------
+Datos de ventas: 
+
+Servicio Medido :  0
+----------------------------------------
+Total litros vendidos :  0
+Total litos :  0.0
+
+-------------------------------------------
+-----Test 5 Inventario Salidas de almacen----
+Test Inventario contra Salidas del tanque 
+
+Test Inventario contra Salidas del tanque, Compara los datos de Salidas de almacen del ultimo inventario contra los datos de Auditor Anden,Carga y los auto consumos 
+Muestra las diferencias si existieran.
+-------------------------------------------
+
+------------Salidas del almacen------------
+
+Dia inventario: 2022-11-22
+Fecha inicial inventario: 2022-11-22 07:00am
+Fecha Final del Inventario: 2022-11-23 07:00am
+Carga de Autotanques: 0.00 lt
+Auditor: 0.00 lt
+Carburacion: 0.00 lt
+Total salidas Inventario: 0.00 lt
+Total en movimientos del sistema: 0.00 lt
+
+----------------AutoConsumo-----------------
+
+AutoConsumo: 0
+
+----------------AutoTanque------------------
+
+AutoTanque: 0
+
+----------------Total LLenados------------------
+
+Total LLenados: 0
+Diferencia entre primer y ultimo registro Auditor anden: 0.0
+
+----Suma AutoConsumo, AutoTanque, Auditor---
+
+Suma de los 3 campos: 0.0
+Total de servicios Auto Consumo: 0
+Diferencia entre Inventarios -&gt; Salidas almacen y Datos de Planta: 0.0
+Diferencia Real de inventario: 0.0
+
+-------------------------------------------
+-------------------------------------------
+
+<br/></div></td></tr></tbody></table></body></html>

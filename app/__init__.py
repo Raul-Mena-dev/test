@@ -1,6 +1,6 @@
-from flask  import Flask
-from flask_bootstrap import  Bootstrap
+from flask  import Flask,url_for
+# from flask_bootstrap import  Bootstrap
 def create_app():
-    app = Flask(__name__)
-    bootstrap = Bootstrap(app)
+    app = Flask(__name__, static_folder='static')
+    # pip bootstrap = Bootstrap(app)
     return app

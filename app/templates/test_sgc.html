@@ -25,15 +25,16 @@
                 <label for="fecha"><i class="fa-solid fa-calendar-days"></i> <strong>Fecha del Test: </strong> </label>
                 {% set prueba = test['nombre_prueba'] %}
               <input type="date" name="fecha" id="fecha{{test['nombre_prueba']}}" class="me-2" onchange="getFecha('{{prueba}}')">
-              <a href="http://127.0.0.1:5000/test_sgc/{{test['nombre_prueba']}}" style="visibility: hidden" id="link{{test['nombre_prueba']}}"></a>
-              <a class="btn btn-success mt-1" id="boton{{test['nombre_prueba']}}" onclick="desactivar();" href="http://127.0.0.1:5000/test_sgc/{{test['nombre_prueba']}}">
+              <a href="/test_sgc/{{test['nombre_prueba']}}" style="visibility: hidden" id="link{{test['nombre_prueba']}}"></a>
+              <a class="btn btn-success mt-1" id="boton{{test['nombre_prueba']}}" onclick="desactivar();" href="/test_sgc/{{test['nombre_prueba']}}">
                 <i class="fa-solid fa-gears me-1"></i>
                 
                 Correr test</a>
                 <a class="btn btn-success mt-1 disabled" id="spinner" style="display: none;">
                   <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                   Test en proceso</a>
-            </div></li>
+            </div>
+          </li>
         {% endfor %}
     </ul>
 </div>

@@ -9,7 +9,7 @@ import random
 def login(driver, username, password):
     driver.get("http://192.168.9.164/sgcweb")
     time.sleep(3)
-    user = driver.find_element(By.XPATH, '//*[@id="user_name"]')
+    user = driver.find_element(By.XPATH, '//*[@id="user_name"]') 
     user.clear()
     user.send_keys(username)
     password_field = driver.find_element(By.XPATH, '//*[@id="user_password"]')

@@ -1,6 +1,5 @@
 
 
-
 function buscador() {
   var input, filter, ul, li, a, i, txtValue;
   input = document.getElementById('search');
@@ -55,6 +54,27 @@ function confirmar(){
   return confirm('Confirma la eliminacion del archivo.')
 
 }
+
+function confirmarCambio(){
+  return confirm('Confirma el cambio de URL de la instancia.')
+
+}
+
+function nuevaInstancia(instancia){
+
+  texto = 'texto_' + instancia
+  url = document.getElementById(texto).value;
+  document.getElementById(instancia).href = 'instancias/' + url + '/' + instancia;
+  boton = document.getElementById(instancia);
+  url.length
+  if(url.length > 0){
+    boton.classList.remove('disabled');
+  }else{
+    boton.classList.add('disabled');
+  }
+}
+
+
 
 function getFecha(prueba) {
   nombreid = 'fecha' + prueba

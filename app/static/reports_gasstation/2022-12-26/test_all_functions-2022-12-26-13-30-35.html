@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>test_all_functions-2022-12-26-13-30-35.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>test_all_functions-2022-12-26-13-30-35.html</h1>
+    <p>Report generated on 26-Dec-2022 at 13:32:21 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.2.0"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.17.12-100.fc34.x86_64-x86_64-with-glibc2.33</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.2.0", "metadata": "2.0.4"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.13</td></tr></table>
+    <h2>Summary</h2>
+    <p>9 tests ran in 105.96 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">7 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">2 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_create_station_worker</td>
+          <td class="col-duration">16.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">app/static/pruebas_gasstation/test_all_functions.py:199: in test_create_station_worker<br/>    role_selection = driver.find_element(By.XPATH, xpath_users(&#x27;station_worker_role&#x27;))<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/webdriver.py:861: in find_element<br/>    return self.execute(Command.FIND_ELEMENT, {&quot;using&quot;: by, &quot;value&quot;: value})[&quot;value&quot;]<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/webdriver.py:444: in execute<br/>    self.error_handler.check_response(response)<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/errorhandler.py:249: in check_response<br/>    raise exception_class(message, screen, stacktrace)<br/><span class="error">E   selenium.common.exceptions.NoSuchElementException: Message: no such element: Unable to locate element: {&quot;method&quot;:&quot;xpath&quot;,&quot;selector&quot;:&quot;//*[@id=&quot;menu-&quot;]/div[3]/ul/li[2]&quot;}</span><br/><span class="error">E     (Session info: headless chrome=108.0.5359.124)</span><br/><span class="error">E   Stacktrace:</span><br/><span class="error">E   #0 0x564c2e9332a3 &lt;unknown&gt;</span><br/><span class="error">E   #1 0x564c2e6f1f77 &lt;unknown&gt;</span><br/><span class="error">E   #2 0x564c2e72e80c &lt;unknown&gt;</span><br/><span class="error">E   #3 0x564c2e72ea71 &lt;unknown&gt;</span><br/><span class="error">E   #4 0x564c2e768734 &lt;unknown&gt;</span><br/><span class="error">E   #5 0x564c2e74eb5d &lt;unknown&gt;</span><br/><span class="error">E   #6 0x564c2e76647c &lt;unknown&gt;</span><br/><span class="error">E   #7 0x564c2e74e903 &lt;unknown&gt;</span><br/><span class="error">E   #8 0x564c2e721ece &lt;unknown&gt;</span><br/><span class="error">E   #9 0x564c2e722fde &lt;unknown&gt;</span><br/><span class="error">E   #10 0x564c2e98363e &lt;unknown&gt;</span><br/><span class="error">E   #11 0x564c2e986b79 &lt;unknown&gt;</span><br/><span class="error">E   #12 0x564c2e96989e &lt;unknown&gt;</span><br/><span class="error">E   #13 0x564c2e987a83 &lt;unknown&gt;</span><br/><span class="error">E   #14 0x564c2e95c505 &lt;unknown&gt;</span><br/><span class="error">E   #15 0x564c2e9a8ca8 &lt;unknown&gt;</span><br/><span class="error">E   #16 0x564c2e9a8e36 &lt;unknown&gt;</span><br/><span class="error">E   #17 0x564c2e9c4333 &lt;unknown&gt;</span><br/><span class="error">E   #18 0x7fb2679142a5 start_thread</span><br/><br/>During handling of the above exception, another exception occurred:<br/>app/static/pruebas_gasstation/test_all_functions.py:221: in test_create_station_worker<br/>    assert int(new_list_num) &gt; int(list_num), f&quot;Prueba fallida con los datos = {str(data)}&quot;<br/><span class="error">E   ValueError: invalid literal for int() with base 10: &#x27;&#x27;</span><br/> ------------------------------Captured stdout call------------------------------ <br/>Message: no such element: Unable to locate element: {&quot;method&quot;:&quot;xpath&quot;,&quot;selector&quot;:&quot;//*[@id=&quot;menu-&quot;]/div[3]/ul/li[2]&quot;}
+  (Session info: headless chrome=108.0.5359.124)
+Stacktrace:
+#0 0x564c2e9332a3 &lt;unknown&gt;
+#1 0x564c2e6f1f77 &lt;unknown&gt;
+#2 0x564c2e72e80c &lt;unknown&gt;
+#3 0x564c2e72ea71 &lt;unknown&gt;
+#4 0x564c2e768734 &lt;unknown&gt;
+#5 0x564c2e74eb5d &lt;unknown&gt;
+#6 0x564c2e76647c &lt;unknown&gt;
+#7 0x564c2e74e903 &lt;unknown&gt;
+#8 0x564c2e721ece &lt;unknown&gt;
+#9 0x564c2e722fde &lt;unknown&gt;
+#10 0x564c2e98363e &lt;unknown&gt;
+#11 0x564c2e986b79 &lt;unknown&gt;
+#12 0x564c2e96989e &lt;unknown&gt;
+#13 0x564c2e987a83 &lt;unknown&gt;
+#14 0x564c2e95c505 &lt;unknown&gt;
+#15 0x564c2e9a8ca8 &lt;unknown&gt;
+#16 0x564c2e9a8e36 &lt;unknown&gt;
+#17 0x564c2e9c4333 &lt;unknown&gt;
+#18 0x7fb2679142a5 start_thread
+
+prueba finalizada incorrectamente con los datos: {&#x27;email&#x27;: &#x27;FilideWraighte@yopmail.com&#x27;, &#x27;first_name&#x27;: &#x27;Filide&#x27;, &#x27;last_name&#x27;: &#x27;Wraighte&#x27;, &#x27;phone&#x27;: &#x27;629-689-5153&#x27;}, mensaje de errorMessage: no such element: Unable to locate element: {&quot;method&quot;:&quot;xpath&quot;,&quot;selector&quot;:&quot;//*[@id=&quot;menu-&quot;]/div[3]/ul/li[2]&quot;}
+  (Session info: headless chrome=108.0.5359.124)
+Stacktrace:
+#0 0x564c2e9332a3 &lt;unknown&gt;
+#1 0x564c2e6f1f77 &lt;unknown&gt;
+#2 0x564c2e72e80c &lt;unknown&gt;
+#3 0x564c2e72ea71 &lt;unknown&gt;
+#4 0x564c2e768734 &lt;unknown&gt;
+#5 0x564c2e74eb5d &lt;unknown&gt;
+#6 0x564c2e76647c &lt;unknown&gt;
+#7 0x564c2e74e903 &lt;unknown&gt;
+#8 0x564c2e721ece &lt;unknown&gt;
+#9 0x564c2e722fde &lt;unknown&gt;
+#10 0x564c2e98363e &lt;unknown&gt;
+#11 0x564c2e986b79 &lt;unknown&gt;
+#12 0x564c2e96989e &lt;unknown&gt;
+#13 0x564c2e987a83 &lt;unknown&gt;
+#14 0x564c2e95c505 &lt;unknown&gt;
+#15 0x564c2e9a8ca8 &lt;unknown&gt;
+#16 0x564c2e9a8e36 &lt;unknown&gt;
+#17 0x564c2e9c4333 &lt;unknown&gt;
+#18 0x7fb2679142a5 start_thread
+
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_add_vehicle</td>
+          <td class="col-duration">12.18</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">app/static/pruebas_gasstation/test_all_functions.py:446: in test_add_vehicle<br/>    driver_selection.click()<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/webelement.py:93: in click<br/>    self._execute(Command.CLICK_ELEMENT)<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/webelement.py:410: in _execute<br/>    return self._parent.execute(command, params)<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/webdriver.py:444: in execute<br/>    self.error_handler.check_response(response)<br/>venv/lib64/python3.9/site-packages/selenium/webdriver/remote/errorhandler.py:249: in check_response<br/>    raise exception_class(message, screen, stacktrace)<br/><span class="error">E   selenium.common.exceptions.ElementClickInterceptedException: Message: element click intercepted: Element &lt;li class=&quot;MuiMenuItem-root MuiMenuItem-gutters MuiMenuItem-divider MuiButtonBase-root sc-jrQzAO gErKnW css-1py9qbu&quot; tabindex=&quot;-1&quot; role=&quot;option&quot; aria-selected=&quot;false&quot; data-value=&quot;60d0692e-b708-4b4b-9b8e-b48dc5c79fd0&quot;&gt;...&lt;/li&gt; is not clickable at point (943, 1018). Other element would receive the click: &lt;li class=&quot;MuiMenuItem-root MuiMenuItem-gutters MuiMenuItem-divider MuiButtonBase-root sc-jrQzAO gErKnW css-1py9qbu&quot; tabindex=&quot;-1&quot; role=&quot;option&quot; aria-selected=&quot;false&quot; data-value=&quot;c2600c5a-7d91-4021-a920-0681f6b4431b&quot;&gt;...&lt;/li&gt;</span><br/><span class="error">E     (Session info: headless chrome=108.0.5359.124)</span><br/><span class="error">E   Stacktrace:</span><br/><span class="error">E   #0 0x564c2e9332a3 &lt;unknown&gt;</span><br/><span class="error">E   #1 0x564c2e6f1f77 &lt;unknown&gt;</span><br/><span class="error">E   #2 0x564c2e7350a9 &lt;unknown&gt;</span><br/><span class="error">E   #3 0x564c2e73318d &lt;unknown&gt;</span><br/><span class="error">E   #4 0x564c2e730d88 &lt;unknown&gt;</span><br/><span class="error">E   #5 0x564c2e72ff2d &lt;unknown&gt;</span><br/><span class="error">E   #6 0x564c2e723dc5 &lt;unknown&gt;</span><br/><span class="error">E   #7 0x564c2e74eb32 &lt;unknown&gt;</span><br/><span class="error">E   #8 0x564c2e72361f &lt;unknown&gt;</span><br/><span class="error">E   #9 0x564c2e74ecfe &lt;unknown&gt;</span><br/><span class="error">E   #10 0x564c2e76647c &lt;unknown&gt;</span><br/><span class="error">E   #11 0x564c2e74e903 &lt;unknown&gt;</span><br/><span class="error">E   #12 0x564c2e721ece &lt;unknown&gt;</span><br/><span class="error">E   #13 0x564c2e722fde &lt;unknown&gt;</span><br/><span class="error">E   #14 0x564c2e98363e &lt;unknown&gt;</span><br/><span class="error">E   #15 0x564c2e986b79 &lt;unknown&gt;</span><br/><span class="error">E   #16 0x564c2e96989e &lt;unknown&gt;</span><br/><span class="error">E   #17 0x564c2e987a83 &lt;unknown&gt;</span><br/><span class="error">E   #18 0x564c2e95c505 &lt;unknown&gt;</span><br/><span class="error">E   #19 0x564c2e9a8ca8 &lt;unknown&gt;</span><br/><span class="error">E   #20 0x564c2e9a8e36 &lt;unknown&gt;</span><br/><span class="error">E   #21 0x564c2e9c4333 &lt;unknown&gt;</span><br/><span class="error">E   #22 0x7fb2679142a5 start_thread</span><br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_log_manager</td>
+          <td class="col-duration">5.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Login como station manager: exitoso
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_create_product</td>
+          <td class="col-duration">10.88</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>prueba finalizada correctamente con los datos: 
+
+name :  LeslyTest
+price :  9.4
+station :  station2
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_dispenser</td>
+          <td class="col-duration">14.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>prueba finalizada correctamente con los datos: 
+
+uid :  583269245230
+station :  station2
+product :  ZonnyaTest
+terminal_number :  490
+dispenser_type :  GS One
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_create_fleet_manager</td>
+          <td class="col-duration">16.63</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>prueba finalizada correctamente con los datos: 
+
+email :  EdnaPablos@yopmail.com
+first_name :  Edna
+last_name :  Pablos
+phone :  813-528-4016
+role :  Fleet Manager
+customer_name :  EdnaCustomer
+station :  station2
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_logout</td>
+          <td class="col-duration">7.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Logout exitoso
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_log_fleet</td>
+          <td class="col-duration">3.67</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Login como fleet manager: exitoso
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">app/static/pruebas_gasstation/test_all_functions.py::test_driver</td>
+          <td class="col-duration">15.32</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>prueba finalizada correctamente con los datos: 
+
+first_name :  Tybalt
+last_name :  Wybourne
+email :  Tybaltdriver@yopmail.com
+phone :  196-821-8894
+role :  
+station :  Select all
+<br/></div></td></tr></tbody></table></body></html>

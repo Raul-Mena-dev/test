@@ -2,6 +2,7 @@ import pytest
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 import datetime
 import os
 import time
@@ -9,7 +10,12 @@ import time
 
 @pytest.fixture(scope='session')
 def driver(request):
-    wd = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    chrome_options = Options()
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--window-size=1920,1080')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    wd = webdriver.Chrome(service=Service(ChromeDriverManager().install()), chrome_options=chrome_options)
     wd.maximize_window()
     wd.implicitly_wait(5)
     yield wd
@@ -18,7 +24,12 @@ def driver(request):
 
 @pytest.fixture()
 def driver2(request):
-    wd = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    chrome_options = Options()
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--window-size=1920,1080')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    wd = webdriver.Chrome(service=Service(ChromeDriverManager().install()), chrome_options=chrome_options)
     wd.maximize_window()
     wd.implicitly_wait(5)
     yield wd
